@@ -1,0 +1,573 @@
+<?php require_once('oben.php.inc'); ?>
+
+<h2>NAME</h2>
+
+<p style="margin-left:6%;"><b>banhammer</b> &mdash; utility
+to block bruteforce attacks with IPFW</p>
+
+
+<h2>SYNOPSIS</h2>
+
+<p style="margin-left:19%;"><b>banhammer &minus;h</b> |
+<b>&minus;v</b> | [<b>&minus;cVq</b>]
+[<b>&minus;d&nbsp;</b><i>directory</i>]
+[<b>&minus;f&nbsp;</b><i>configfile</i>] <b><br>
+banhammerd &minus;h</b> | <b>&minus;L &minus;t</b>
+<i>tables</i> [<b>&minus;n</b>] | <b>&minus;C &minus;t</b>
+<i>tables</i> | <b>&minus;t</b> <i>tables</i>
+[<b>&minus;s&nbsp;</b><i>sleep</i>]
+[<b>&minus;S&nbsp;</b><i>statefile</i>]
+[<b>&minus;p&nbsp;</b><i>pidfile</i>]
+[<b>&minus;d&nbsp;</b><i>directory</i>] [<b>&minus;nfvq</b>]
+<b><br>
+banstat</b> [<i>logfile</i>] [<i>mode</i>]</p>
+
+
+<h2>DESCRIPTION</h2>
+
+<p style="margin-left:6%;">Banhammer allows system
+administrators to react to various kinds of external events
+such as bruteforce attacks on UNIX services. The
+<i>banhammer</i> program analyzes the system log (syslog),
+identifies the attacker&rsquo;s IP address, and adds it to
+an IPFW table. Depending on the firewall rules, this can
+then block, throttle, or otherwise treat traffic from these
+IP addresses. Banhammer uses regular expressions to parse
+syslog lines, providing a great deal of flexibility. The
+regular expressions can be adapted to work with virtually
+any network service capable of logging to syslog. On modern
+versions of FreeBSD (9.0 and upward) with IPFW3, banhammer
+supports both IPv4 and IPv6 address blocking. On older
+systems, banhammer only supports IPv4 addresses.</p>
+
+<p style="margin-left:6%; margin-top: 1em">Once added to an
+IPFW table, addresses are automatically expunged from the
+IPFW table after a configurable time by the
+<i>banhammerd</i> daemon.</p>
+
+
+<p style="margin-left:6%; margin-top: 1em"><b>banhammer</b>
+<i><br>
+banhammer</i> is mainly intended to be used in
+<i>/etc/syslog.conf</i> to pipe logs into. It performs a
+line by line analysis of its standard input, identifies IP
+addresses, and adds them to their respective IPFW tables.
+Along with the address and netmask, every entry in the IPFW
+tables has a <i>value</i> field, which is used by banhammer
+to store the expiration time as 32 bit UNIX timestamp.</p>
+
+<p style="margin-left:6%; margin-top: 1em">The following
+command line options are available for banhammer:</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><b>&minus;h</b></p>
+
+<p style="margin-left:17%; margin-top: 1em">Display a short
+help message and exits.</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><b>&minus;v</b></p>
+
+<p style="margin-left:17%; margin-top: 1em">Shows version
+and various build time options and exits.</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><b>&minus;V</b></p>
+
+<p style="margin-left:17%; margin-top: 1em">Increases the
+logging level. Can be repeated several times to increase the
+logging level further.</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><b>&minus;c</b></p>
+
+<p style="margin-left:17%; margin-top: 1em">Only check the
+configuration file(s) provided for correctness and exit
+without performing any analysis.</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><b>&minus;q</b></p>
+
+<p style="margin-left:17%; margin-top: 1em">Decrease the
+logging level. Can be repeated several times to decrease the
+logging level further.</p>
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><b>&minus;d</b>
+<i>directory</i></p>
+
+<p style="margin-left:17%;">After reading all configuration
+files, change the root directory of the process to the
+specified directory for increased security.</p>
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><b>&minus;f</b>
+<i>configfile</i></p>
+
+<p style="margin-left:17%;">Specifies a configuration file
+to be read. Several configuration files can be specified by
+using this switch repeatedly. Configuration files are read
+and processed in the order specified. If no configuration
+file is specified, banhammer will try to load the default
+configuration file at
+<i>/usr/local/etc/banhammer.conf</i>.</p>
+
+<p style="margin-left:6%; margin-top: 1em">Note that for
+DNS resolution to work, you have to copy the file
+<i>/etc/resolv.conf</i> into the same location relative to
+the new root directory.</p>
+
+
+<p style="margin-left:6%; margin-top: 1em"><b>banhammerd</b>
+<i><br>
+banhammerd</i> primarily is a daemon, which checks the
+specified IPFW tables periodically, and expunges expired
+entries. If a state file is given, the IPFW tables are
+filled with the entries read from the state file at startup
+and the current entries in each IPFW table are written to
+the state file upon program termination. This allows the
+blocking state to be persistent accross system restarts.</p>
+
+<p style="margin-left:6%; margin-top: 1em">The following
+command line options are available for banhammerd:</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><b>&minus;h</b></p>
+
+<p style="margin-left:17%; margin-top: 1em">Display a short
+help message and exit.</p>
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><b>&minus;t</b>
+<i>tables</i></p>
+
+<p style="margin-left:17%;">Specify the numbers of the IPFW
+tables to operate on. Several tables can be specified as a
+comma separated list such as <i>1,2,7,10</i> or by
+repeatedly specifying the <b>&minus;t</b> switch.</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><b>&minus;L</b></p>
+
+<p style="margin-left:17%; margin-top: 1em">Print a list of
+IP addresses in the specified IPFW tables and their
+associated timeout values and exit.</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><b>&minus;C</b></p>
+
+<p style="margin-left:17%; margin-top: 1em">Expunge expired
+entries from the specified IPFW tables and exit (&quot;cron
+mode&quot;).</p>
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><b>&minus;s</b>
+<i>sleep</i></p>
+
+<p style="margin-left:17%;">Specify the interval in seconds
+between checking the tables when running as a daemon.</p>
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><b>&minus;S</b>
+<i>statefile</i></p>
+
+<p style="margin-left:17%;">Specify the location of the
+state file for the IPFW table states.</p>
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><b>&minus;p</b>
+<i>pidfile</i></p>
+
+<p style="margin-left:17%;">Specify the location of the pid
+file of the daemonized process.</p>
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><b>&minus;d</b>
+<i>directory</i></p>
+
+<p style="margin-left:17%;">Change the root directory of
+the process to the specified directory for increased
+security after daemonizing.</p>
+
+<p style="margin-left:17%; margin-top: 1em">Note that for
+DNS resolution to work, you have to copy the file
+<i>/etc/resolv.conf</i> into the same location relative to
+the new root directory.</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><b>&minus;n</b></p>
+
+<p style="margin-left:17%; margin-top: 1em">When listing
+table entries, do not attempt to resolve IPs to DNS
+names.</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><b>&minus;f</b></p>
+
+<p style="margin-left:17%; margin-top: 1em">Run the daemon
+in the foreground (do not daemonize).</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><b>&minus;V</b></p>
+
+<p style="margin-left:17%; margin-top: 1em">Increases the
+logging level. Can be repeated several times to increase the
+logging level further.</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><b>&minus;q</b></p>
+
+<p style="margin-left:17%; margin-top: 1em">Decrease the
+logging level. Can be repeated several times to decrease the
+logging level further.</p>
+
+<p style="margin-left:6%; margin-top: 1em"><b>banstat</b>
+<i><br>
+banstat</i> is a small script to extract and display IP
+addresses added to IPFW by <i>banhammer</i>. By default, it
+analyzes the log file <i>/var/log/security</i> where the
+<i>banhammer</i> log is written to on an unmodified FreeBSD
+system. A different log file (also a compressed log file)
+can be specified as the first argument to <i>banstat</i>.
+The second argument is the mode, either <i>tab</i> or
+<i>all</i>, which specifies if IP counting is to be
+performed by table or accumulated over all tables.</p>
+
+<p style="margin-left:6%; margin-top: 1em">Daily
+<i>banstat</i> activity reports can be included in the
+<a href="http://www.freebsd.org/cgi/man.cgi?query=periodic&sektion=8&format=html">periodic(8)</a>
+security output by enabeling it in <a href="http://www.freebsd.org/cgi/man.cgi?query=periodic.conf&format=html">periodic.conf(5)</a> by adding the following line:</p>
+
+
+<p style="margin-left:6%; margin-top: 1em"><code>daily_banstat_enable=&quot;YES&quot;</code></p>
+
+<h2>IMPLEMENTATION NOTES</h2>
+
+<p style="margin-left:6%;">The design outlined above allows
+to avoid any IPC between the two processes, while still
+allowing different services to be added to different tables.
+It also makes it is easy for the administrator to get a list
+of currently blocked addresses and use <a href="http://www.freebsd.org/cgi/man.cgi?query=ipfw&format=html">ipfw(8)</a>
+to edit the list of IP addresses manually if necessary.</p>
+
+<p style="margin-left:6%; margin-top: 1em">If compiled with
+the PCRE library <a href="http://www.pcre.org/pcre.txt">pcre(3)</a>, banhammer
+will use the more advanced PERL compatible regular expressions. Otherwise
+banhammer relies on POSIX regular expressions as documented
+in <a href="http://www.freebsd.org/cgi/man.cgi?query=re_format&format=html">re_format(7)</a>.</p>
+
+<h2>FILES</h2>
+
+<p style="margin-left:6%;">The configuration file for
+<i>banhammer</i> has a powerful syntax to allow fine tuning
+of almost all aspects of banhammer.</p>
+
+<p style="margin-left:6%; margin-top: 1em">The
+configuration file consists of several groups of regular
+expressions to match syslog messages against line by line.
+Lines starting with # are considered to be comments and are
+ignored. Matching expressions in a group are used to extract
+a host (either an IP address or DNS name) from the message.
+This is done by taking the regular expression match named
+&quot;host&quot; (only available if compiled with PCRE) or
+the first match found in the regular expression. Each hit
+for a host is counted, and when the configured limit for
+that group is reached, the IP address of the host is added
+to the IPFW table specified in the group options.</p>
+
+<p style="margin-left:6%; margin-top: 1em">Groups are
+defined by one line of comma separated group parameters
+enclosed in square brackets. The group definition is then
+followed by the regular expressions in the group, each one
+in a separate line without delimiters. A group is ended by
+an empty line.</p>
+
+<p style="margin-left:6%; margin-top: 1em">The options to
+define the behaviour of a group are</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><i>table</i>=<i>&lt;number&gt;</i></p>
+
+<p style="margin-left:17%;">IPFW table number to add IP
+addresses to (default: 1)</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><i>count</i>=<i>&lt;number&gt;</i></p>
+
+<p style="margin-left:17%;">Number of hits required before
+a host is added to the list (default: 4)</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><i>within</i>=<i>&lt;number&gt;</i></p>
+
+<p style="margin-left:17%;">Time in seconds after the first
+hit, within which the number of hits must occur (default:
+60)</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><i>reset</i>=<i>&lt;number&gt;</i></p>
+
+<p style="margin-left:17%;">Time in seconds after which a
+host is to be expunged from the table, or zero for permanent
+entries (default: 600)</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><i>random</i>=<i>&lt;number&gt;</i></p>
+
+<p style="margin-left:17%;">Maximum precentage by which to
+randomly vary the reset time <i>reset</i> for every blocking
+event (default: 30)</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><i>continue</i>=<i>no|yes|next</i></p>
+
+<p style="margin-left:17%;">Determine behaviour after an
+input line has matched a regular expression (default:
+no)</p>
+
+<p style="margin-left: 17%; margin-top: 1em" valign="top"><i>no</i></p>
+
+<p style="margin-left:27%; margin-top: 1em">Terminate
+search after first match</p>
+
+<p style="margin-left: 17%; margin-top: 1em" valign="top"><i>yes</i></p>
+
+<p style="margin-left:27%; margin-top: 1em">Continue
+matching with next regular expression in this group</p>
+
+<p style="margin-left: 17%; margin-top: 1em" valign="top"><i>next</i></p>
+
+<p style="margin-left:27%; margin-top: 1em">Continue
+matching with first regular expression in the next group</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><i>warnfail</i>=<i>no|yes</i></p>
+
+<p style="margin-left:17%;">Write warnings to syslog if a
+host keeps producing hits after it has been blocked
+(default: no)</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><i>onfail</i>=<i>block|none</i></p>
+
+<p style="margin-left:17%;">Action to take when a host
+keeps producing hits after it has been blocked (default:
+block)</p>
+
+<p style="margin-left: 17%; margin-top: 1em" valign="top"><i>block</i></p>
+
+<p style="margin-left:27%; margin-top: 1em">Try again to
+add the host to IPFW table</p>
+
+<p style="margin-left: 17%; margin-top: 1em" valign="top"><i>none</i></p>
+
+<p style="margin-left:27%; margin-top: 1em">Ignore the
+additional hits and do nothing</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><i>maxhosts</i>=<i>&lt;number&gt;</i></p>
+
+<p style="margin-left:17%;">Maximum number of hosts to keep
+on watch list, or 0 for no limit (default: 0)</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><i>warnmax</i>=<i>no|yes</i></p>
+
+<p style="margin-left:17%;">Write warning to syslog if a
+new host has been matched, but <i>maxhosts</i> is exceeded
+(default: yes)</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><i>onmax</i>=<i>block|none</i></p>
+
+<p style="margin-left:17%;">Action to take when a new host
+has been matched, but <i>maxhosts</i> is exceeded (default:
+block)</p>
+
+<p style="margin-left: 17%; margin-top: 1em" valign="top"><i>block</i></p>
+
+<p style="margin-left:27%; margin-top: 1em">Immediately add
+new host to IPFW table</p>
+
+<p style="margin-left: 17%; margin-top: 1em" valign="top"><i>none</i></p>
+
+<p style="margin-left:27%; margin-top: 1em">Ignore the new
+host and do nothing</p>
+
+
+<p style="margin-left: 6%; margin-top: 1em" valign="top"><i>blocklocal</i>=<i>no|yes</i></p>
+
+<p style="margin-left:17%;">Allow local interface addresses
+to be added to the IPFW table (default: no)</p>
+
+<p style="margin-left:6%; margin-top: 1em">The state file
+format used by <i>bruteblockd</i> is a simple text file in
+which each line provides an IPFW table number, an associated
+value, and an IP address separated by a single tab or space.
+Lines starting with # are considered comments and are
+ignored.</p>
+
+
+<h2>SECURITY</h2>
+
+<p style="margin-left:6%;">Automated manipulation of IPFW
+tables has various security implications depending on the
+actual configuration used. In this section, some of the
+obvious implications and ways to mitigate them are
+described.</p>
+
+<p style="margin-left:6%; margin-top: 1em">Anyone who can
+log arbitrary lines to syslog can use <b>banhammer</b> as a
+way to perpetrate a DOS attack against any IP address by
+logging messages that trigger one of the regular
+expressions. To protect against log entries by programs that
+log unfiltered user input all regular expressions should be
+carefully written to match as specific a message as
+possible. Also, they should be ancored to the start of the
+line and check for the name of the program that generated
+the log message. On FreeBSD, this can be achieved e.g. by
+prepending <code>^.{15} [^ ]* PROGRAM\[[[:digit:]]+]: </code> to the
+regular expression matching the actual log message generated
+by PROGRAM.</p>
+
+<p style="margin-left:6%; margin-top: 1em">By default
+<b>banhammer</b> will not allow blocking of IP addresses
+associated with a local network interface. This is a
+failsafe to prevent accidental or malicious interference
+with local networking capabilities. If local IP addresses
+should really be added to IPFW tables as well, the
+<i>blocklocal</i> group option can be used to disable the
+check.</p>
+
+<p style="margin-left:6%; margin-top: 1em">The state file
+given to <b>banhammerd</b> must be owned by root and have
+write permission only for the owner in order for the
+configuration in the given file to be loaded into the IPFW
+tables at startup. When the file is written,
+<b>banhammerd</b> will automatically change it to have root
+ownership and 0600 file permissions. This is to prevent
+users other than root from tampering with IPFW tables.</p>
+
+
+<h2>EXAMPLES</h2>
+
+<p style="margin-left:6%;">To get banhammer working, you
+first need to establish a log process to parse the
+syslogs.</p>
+
+<p style="margin-left:6%; margin-top: 1em">Edit
+<i>/etc/syslog.conf</i> and add the following entry:</p>
+
+
+<p style="margin-left:6%; margin-top: 1em"><code>auth.info;authpriv.info
+| exec /usr/local/bin/banhammer</code></p>
+
+<p style="margin-left:6%; margin-top: 1em">then restart
+syslogd using <b>service syslogd restart</b></p>
+
+<p style="margin-left:6%; margin-top: 1em">Next copy the
+sample banhammer configuration file
+<i>/usr/local/etc/banhammer.conf.dist</i> to
+<i>/usr/local/etc/banhammer.conf</i> and edit it to suit
+your needs. It includes examples matching OpenSSH 5.1 log
+messages as well as some ProFTP log messages.</p>
+
+<p style="margin-left:6%; margin-top: 1em">You should also
+setup the banhammerd daemon to periodically expunge your
+IPFW tables. To use the banhammerd daemon, just add
+following lines to <i>/etc/rc.conf</i>:</p>
+
+
+<p style="margin-left:6%; margin-top: 1em"><code>
+banhammerd_enable=&quot;YES&quot;
+<br>
+banhammerd_tables=&quot;1,2,3&quot; <br>
+banhammerd_sleep=&quot;120&quot; <br>
+
+banhammerd_statefile=&quot;/var/db/banhammerd.state&quot;</code></p>
+
+<p style="margin-left:6%; margin-top: 1em">Don&rsquo;t
+forget to change the table numbers and sleep interval to
+suit your needs. Also consider if you really want the IPFW
+table state to be persistent, otherwise remove the last
+line. The banhammerd daemon will automatically start after
+the next system reboot. To launch it manually, run
+<b>service banhammerd start</b></p>
+
+<p style="margin-left:6%; margin-top: 1em">Finally, setup
+your IPFW rules to handle IP addresses in the tables you
+specified in the configuration file. To simply block
+addresses contained in IPFW table 1, for example,
+execute</p>
+
+<p style="margin-left:6%; margin-top: 1em"><b>ipfw add 100
+deny ip from me to table(1) <br>
+ipfw add 100 deny ip from table(1) to me</b></p>
+
+<p style="margin-left:6%; margin-top: 1em">or edit your
+firewall configuration in <i>/etc/rc.firewall</i> to include
+similar commands.</p>
+
+<p style="margin-left:6%; margin-top: 1em">To see the
+activity report for banhammer, you can simply type
+<b>banstat</b>.</p>
+
+<p style="margin-left:6%; margin-top: 1em">If you want to
+receive daily activity reports from banhammer as part of
+your <a href="http://www.freebsd.org/cgi/man.cgi?query=periodic&sektion=8&format=html">periodic(8)</a>
+security output, add the following line to <i>/etc/periodic.conf</i>:</p>
+
+
+<p style="margin-left:6%; margin-top: 1em"><code>daily_banstat_enable=&quot;YES&quot;</code></p>
+
+<h2>HINTS</h2>
+
+<p style="margin-left:6%;">All hit counting happens within
+each group separately. Hits in different groups do not count
+towards each others limits. Hits of the same host by
+different regular expressions in the same group, however, do
+count towards the total hit count of that host.</p>
+
+<p style="margin-left:6%; margin-top: 1em">Groups allow the
+separation of blocking rules for different services, with
+fine grained control over the blocking actions to be
+taken.</p>
+
+<p style="margin-left:6%; margin-top: 1em">The
+<i>maxhosts</i> and <i>onmax</i> settings can be used to
+protect against DDOS attacks. Instead of keeping track of
+every host that triggers one of the regular expressions, and
+giving each one <i>count</i> tries, only the first
+<i>maxhosts</i> hosts are watched. By blocking all further
+hosts triggering one of the regular expressions right away,
+flooding or DDOS attacks are stopped at the earliest
+possible level by the IPFW firewall, before even reaching
+the application under attack.</p>
+
+<p style="margin-left:6%; margin-top: 1em">The
+<i>warnfail</i> and <i>onfail</i> settings can be used to
+prevent unnecessary blocking actions and clobbering of the
+syslog if banhammer is used for more than just blocking
+hosts. For example, certain hosts may just be subjected to
+traffic shaping to limit their bandwidth, instead of
+blocking them. In that case legitimate hits may be generated
+even after the host has been added to the appropriate IPFW
+table.</p>
+
+<h2>SEE ALSO</h2>
+
+<p style="margin-left:6%;">
+<a href="http://www.pcre.org/pcre.txt">pcre(3)</a>,
+<a href="http://www.freebsd.org/cgi/man.cgi?query=rc.conf&format=html">rc.conf(5)</a>,
+<a href="http://www.freebsd.org/cgi/man.cgi?query=periodic.conf&format=html">periodic.conf(5)</a>,
+<a href="http://www.freebsd.org/cgi/man.cgi?query=syslog.conf&format=html">syslog.conf(5)</a>,
+<a href="http://www.freebsd.org/cgi/man.cgi?query=re_format&format=html">re_format(7)</a>,
+<a href="http://www.freebsd.org/cgi/man.cgi?query=ipfw&format=html">ipfw(8)</a>,
+<a href="http://www.freebsd.org/cgi/man.cgi?query=periodic&sektion=8&format=html">periodic(8)</a></p>
+
+<h2>AUTHORS</h2>
+
+<p style="margin-left:6%;"><b>banhammer</b> is developed by
+Alexander Wittig &lt;alexander (at) wittig.name&gt;,
+<a href="https://alex.wittig.name/en/90Software/80Banhammer/index.html">https://alex.wittig.name/en/90Software/80Banhammer/index.html</a></p>
+
+
+<p style="margin-left:6%; margin-top: 1em"><b>banhammer</b>
+is inspired by and originally based on bruteblock by <br>
+Alex Samorukov &lt;samm (at) os2.kiev.ua&gt;,
+<a href="http://samm.kiev.ua/bruteblock/">http://samm.kiev.ua/bruteblock/</a></p>
+
+<?php require_once('unten.php.inc'); ?>

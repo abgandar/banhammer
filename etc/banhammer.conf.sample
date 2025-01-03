@@ -1,0 +1,72 @@
+#
+# BANHAMMER SAMPLE CONFIGURATION FILE
+#
+
+#
+# See banhammer(8) for a full description of the file format.
+#
+
+#
+# Some useful POSIX pattern to match IPs and hostnames
+# with reasonable accuracy:
+#    PATTERN                     MATCHES
+# ([[:digit:].]+)                IP4
+# ([[:xdigit:]:]+)               IP6
+# ([[:xdigit:]:.]+)              IP4, IP6
+# ([[:alnum:].-]+)               IP4, host name
+# ([[:alnum:]:.-]+)              IP4, IP6, host name
+#
+
+#
+# OpenSSH 5.1
+#
+# matching lines such as:
+#
+# Jan  1 00:00:00 hostname sshd[72593]: Invalid user sam from 1.2.3.4
+# Jan  1 00:00:00 hostname sshd[72593]: Failed password for illegal user max from evil.example.com
+# Jan  1 00:00:00 hostname sshd[72626]: Failed password for jim from 1.2.3.4
+# Jan  1 00:00:00 hostname sshd[87341]: Did not receive identification string from evil.example.com
+# Jan  1 00:00:00 hostname sshd[4316]: User joe from 1.2.3.4 not allowed because not listed in AllowUsers
+#
+# Warning: When legitimate users enter a wrong password, some ssh clients will 
+#          try several authentication methods, causing several failures. Thus
+#          one wrong user password may trigger several hits. Consider this
+#          when choosing a value for "count".
+#
+[table=1, within=90, reset=900, count=4]
+^.{15} [^ ]* sshd\[[[:digit:]]+\]: Invalid user [[:alnum:]]+ from ([[:alnum:].-]+)$
+^.{15} [^ ]* sshd\[[[:digit:]]+\]: Failed password for illegal user [[:alnum:]]+ from ([[:alnum:].-]+)$
+^.{15} [^ ]* sshd\[[[:digit:]]+\]: Failed password for [[:alnum:]]+ from ([[:alnum:].-]+)$
+^.{15} [^ ]* sshd\[[[:digit:]]+\]: Did not receive identification string from ([[:alnum:].-]+)$
+^.{15} [^ ]* sshd\[[[:digit:]]+\]: User [[:alnum:]]+ from ([[:alnum:].-]+) not allowed because not listed in AllowUsers$
+
+#
+# ProFTPD
+#
+# matching lines such as:
+#
+# Jan  1 00:00:00 hostname proftpd[71905]: server.com (example.com[1.2.3.4]) - USER hacker: no such user
+# Jan  1 00:00:00 hostname proftpd[72020]: server.com (example.com[1.2.3.4]) - USER hacker (Login failed)
+#
+# For this to work you need to also redirect ftp.* messages to  
+# banhammer in /etc/syslogd.conf.
+#
+[table=1,within=120,count=2,reset=1000]
+^.{15} [^ ]* proftpd\[[[:digit:]]+\]: [[:alnum:].-]+ \([[:alnum:].-]*\[([[:alnum:].-]+)\]\) - USER [^[:space:]]+: no such user$
+^.{15} [^ ]* proftpd\[[[:digit:]]+\]: [[:alnum:].-]+ \([[:alnum:].-]*\[([[:alnum:].-]+)\]\) - USER [^[:space:]]+ \(Login failed\)$
+
+#
+# Banhammer
+#
+# matching lines such as:
+# Jan  1 00:00:00 hostname banhammer[8309]: Added 1.2.3.4 to IPFW table 2.
+# Jan  1 00:00:00 hostname banhammer[78809]: Added 1.2.3.4 to IPFW table 1 for 887 seconds.
+#
+# This is a useful set of rules to permanently block repeat offenders
+# by monitoring banhammer's very own output to identify blocked IPs.
+# For this to work you need to also redirect security.* messages to 
+# banhammer in your /etc/syslogd.conf.
+#
+[table=2,within=10800,count=6,reset=0]
+^.{15} [^ ]* banhammer\[[[:digit:]]+\]: Added ([[:digit:].]+) to IPFW table [[:digit:]]+\.$
+^.{15} [^ ]* banhammer\[[[:digit:]]+\]: Added ([[:digit:].]+) to IPFW table [[:digit:]]+ for [[:digit:]]+ seconds\.$

@@ -1,0 +1,64 @@
+#!/bin/sh
+#
+# Compile daily statistics of hosts banned by banhammer
+# 
+# based on FreeBSD src/etc/periodic/security/800.loginfail
+#
+
+# If there is a global system configuration file, suck it in.
+#
+if [ -r /etc/defaults/periodic.conf ]
+then
+    . /etc/defaults/periodic.conf
+    source_periodic_confs
+fi
+
+: ${security_status_banstat_enable="YES"}
+: ${security_status_banstat_period="DAILY"}
+: ${banstat_log="${security_status_logdir}/security"}
+: ${banstat_bin="/usr/local/bin/banstat"}
+
+yesterday=`LC_ALL=C date -v-1d '+%b %e'`
+logdir=`dirname "$banstat_log"` 
+logfile=`basename "$banstat_log"` 
+
+checks() {
+        if [ ! -d "$logdir" ]; then
+            echo "$logdir doesn't exist"
+            exit 2
+        fi
+
+        if [ ! -x "$banstat_bin" ]; then
+            echo "$banstat_bin not found"
+            exit 2
+        fi
+}
+
+catmsgs() {
+        find "$logdir" -name "${logfile}.*" -mtime -2 |
+            sort -t. -r -n -k 2,2 |
+            while read f
+            do
+		echo $f
+                case "$f" in
+                    *.gz)       zcat -f "$f";;
+                    *.bz2)      bzcat -f "$f";;
+                    *.xz)       xzcat -f "$f";;
+                esac
+            done
+        [ -f "$banstat_log" ] && cat "$banstat_log"
+}
+
+rc=0
+
+if check_yesno_period security_status_banstat_enable
+then
+        checks
+        echo ""
+        echo "hosts hit with the banhammer:"
+
+        n=$(catmsgs | egrep -ia "^$yesterday" | "$banstat_bin" - | tee /dev/stderr | wc -l)
+        [ "$n" -gt 1 ] && rc=1
+fi
+
+exit $rc

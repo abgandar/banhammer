@@ -1,0 +1,85 @@
+                           BANHAMMER V0.2
+
+About banhammer
+   Banhammer allows system administrators to dynamically adjust firewall
+   rules in real time. The program analyzes system logs as they are written,
+   extracts IP addresses, and adds them into IPFW tables. Depending on the
+   firewall configuration, this allows to block, throttle or otherwise handle
+   IP traffic by those addresses.
+   Addresses are automatically purged from the tables after specified time.
+   Banhammer uses regular expressions (POSIX or PCRE) to parse the logs, which
+   gives great flexibility to the user. This allows banhammer to be used with
+   virtually any network service capable of logging through syslog. Banhammer
+   is written in pure C, has a very small memory footprint, doesn't rely on any
+   external programs and communicates with IPFW directly via sockets.
+
+How it works
+   Banhammer consists of two separate main binaries: banhammer and banhammerd.
+   `banhammer' is intended to be used in /etc/syslog.conf to pipe logs into.
+   It performs the log analysis, and adds addresses to IPFW tables. Along with
+   the IP address, every entry in the IPFW tables has an additional field, which
+   is used by banhammer to store the expiration date of the entry.
+   `banhammerd' can be run in several ways. It can be a daemon, which checks
+   IPFW tables periodically and removes expired entries. It can also be
+   called to just purge the IPFW tables once, and exit afterwards. This is
+   useful if you want to call banhammerd from cron. For administrators,
+   banhammerd can simply print a list of currently blocked addresses and
+   their expiration date.
+
+   This design allows to avoid any IPC between banhammer and banhammerd. It
+   also makes it easy for the administrator to edit the list of currently
+   blocked addresses manually using system tools, such as ipfw(8), should that
+   become neccessary.
+
+System requirements
+   Banhammer requires FreeBSD 8 or above (tested on FreeBSD 8 and 9) with the
+   IPFW firewall (version 2 or 3).
+   Additionally, to provide even greater flexibility with regular expressions,
+   it is possible to compile banhammer with the PCRE library instead of the
+   default POSIX regular expressions. PCRE can be installed easily from the
+   FreeBSD ports tree (devel/pcre).
+
+Installation
+   Installing banhammer is easiest using the FreeBSD port collection or the
+   package in security/banhammer. Just type "pkg install security/banhammer"
+   and you should be all set.
+   Alternatively, to compile and install banhammer from source, unpack the
+   source code and follow these steps:
+
+   1) `./configure'
+      This will configure banhammer to build on your system.
+
+      --with-pcre=[path]		build with PCRE library in path
+        The default is to look for the PCRE library in the standard path on
+        FreeBSD (/usr/local). If there is no PCRE library, banhammer will be
+        built with POSIX regular expressions from the system libraries instead.
+
+    If IPFW3 is available banhammer will use the new IPFW3 kernel interface,
+    falling back to IPFW2 otherwise. If both IPFW3 and IPv6 are available,
+    banhammer will also be automatically built with support for blocking IPv6
+    addresses as well.
+
+   2) `make'
+      Will build the binaries.
+
+   3) `make install'   
+      Installs the binaries into /usr/local/bin and the sample configuration
+      file into /usr/local/etc.
+
+Setup
+   Once banhammer is installed in the system, you have to perform a few more
+   steps to set up banhammer in the system.
+   See details in the example section of banhammer(8).
+
+Configuration file
+   See banhammer(8) or the example configuration file in /usr/local/etc for
+   detailed information on the configuration file format.
+
+Contact
+   Any feedback is appreciated. The author can be contacted at
+   Alexander Wittig <alexander (at) wittig.name>.
+   This program is inspired by and partly based on bruteblock developed by
+   Alex Samorukov.
+
+Homepage
+   https://alex.wittig.name/en/90Software/80Banhammer/index.html

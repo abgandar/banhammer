@@ -1,0 +1,10 @@
+
+  The default configuration files for banhammer was installed at 
+  %%PREFIX%%/etc/banhammer.conf.sample
+
+  To finish the installation of banhammer, you need to 
+  (1) Adjust syslogd.conf to send the relevant messages to banhammer
+  (2) Adjust banhammerd.conf to meet your requirements
+  (3) Add firewall rules to treat traffic originating from offending IPs
+
+  For more information on these three steps, see banhammer(8).

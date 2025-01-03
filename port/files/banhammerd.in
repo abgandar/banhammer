@@ -1,0 +1,75 @@
+#!/bin/sh
+#
+# $FreeBSD$
+
+# PROVIDE: banhammerd
+# REQUIRE: NETWORKING syslogd
+# BEFORE: DAEMON
+# KEYWORD: nojail shutdown
+
+#
+# Add the following lines to /etc/rc.conf to enable banhammerd:
+# banhammerd_enable (bool):   Set to "NO" by default.
+#                             Set it to "YES" to enable banhammerd
+# banhammerd_sleep (num):     Set to "60" by default.
+#                             Number of seconds to sleep between 
+#                             checking for expired blocks
+# banhammerd_statefile (str): Set to "" by default.
+#                             Full path and name of the file to
+#                             store banhammerd table state used to
+#                             repopulate the tables after reboots
+
+. /etc/rc.subr
+
+name=banhammerd
+rcvar=banhammerd_enable
+
+load_rc_config $name
+
+: ${banhammerd_enable="NO"}
+: ${banhammerd_sleep="60"}
+
+pidfile=/var/run/${name}.pid
+command=%%PREFIX%%/bin/${name}
+extra_commands="clean list"
+start_precmd="banhammerd_prestart"
+clean_cmd="banhammerd_clean"
+list_cmd="banhammerd_list"
+
+banhammerd_prestart()
+{
+	if [ -z "${banhammerd_tables}" ]; then
+		err 1 "Please specify IPFW table number(s) with banhammerd_tables parameter in /etc/rc.conf (see banhammer(8))"
+	fi
+	rc_flags="-t \"${banhammerd_tables}\" ${rc_flags}"
+
+	if [ ! -z "${banhammerd_sleep}" ]; then
+		rc_flags="-s \"${banhammerd_sleep}\" ${rc_flags}"
+	fi
+
+	if [ ! -z "${pidfile}" ]; then
+		rc_flags="-p \"${pidfile}\" ${rc_flags}"
+	fi
+
+	if [ ! -z "${banhammerd_statefile}" ]; then
+		rc_flags="-S \"${banhammerd_statefile}\" ${rc_flags}"
+	fi
+}
+
+banhammerd_list()
+{
+	if [ -z "${banhammerd_tables}" ]; then
+		err 1 "Please specify IPFW table number(s) with banhammerd_tables parameter in /etc/rc.conf (see banhammer(8))"
+	fi
+        "$command" -L -t "${banhammerd_tables}"
+}
+
+banhammerd_clean()
+{
+	if [ -z "${banhammerd_tables}" ]; then
+		err 1 "Please specify IPFW table number(s) with banhammerd_tables parameter in /etc/rc.conf (see banhammer(8))"
+	fi
+        "$command" -C -t "${banhammerd_tables}"
+}
+
+run_rc_command "$1"

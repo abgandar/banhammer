@@ -1,0 +1,62 @@
+#!/bin/sh
+#
+# Print the statistics of how often each IP was blocked by banhammer
+#
+
+# show short help
+if [ "x$1" == "x-h" ]; then
+    echo "Usage: $0 [logfile] [mode]"
+    echo "       logfile  -  security log file to analyze or '-' for the"
+    echo "                   standard input (default: /var/log/security)"
+    echo "       mode     -  'all': count IPs over all IPFW tables"
+    echo "                   'tab': count IPs per IPFW table (default)"
+    exit
+fi
+
+# Find log file to work on
+FILE="/var/log/security"
+if [ "x$1" != "x" ]; then
+    FILE="$1"
+fi
+
+if [ "x$1" != "x-" -a ! \( -f "$FILE" -a -r "$FILE" \) ]; then
+    echo "Error: log file '$FILE' not found or not readable"
+    exit
+fi
+
+# Find the right decompressor and the other tools
+case "$FILE" in
+    *.bz | *.bz2 )
+        CAT=`which bzcat`
+        ;;
+    *.gz )
+        CAT=`which gzcat`
+        ;;
+    *.xz )
+        CAT=`which xzcat`
+        ;;
+    *)
+        CAT=`which cat`
+        ;;
+esac
+GREP=`which grep`
+AWK=`which awk`
+SORT=`which sort`
+UNIQ=`which uniq`
+
+if [ ! \( -x "$CAT" -a -x "$AWK" -a -x "$SORT" -a -x "$UNIQ" \) ]; then
+    echo "Error: Couldn't find the right cat, awk, sort and/or uniq."
+    exit
+fi;
+
+# check which mode to use
+if [ "x$2" != "xall" ]; then
+    AWKPROG='{print "\t" int($11) "\t" $7}'
+    printf "Count\tTable\tIP\n"
+else
+    AWKPROG='{print "\t" $7}'
+    printf "Count\tIP\n"
+fi
+
+"$CAT" "$FILE" | "$GREP" -E '^.{15} [^ ]* banhammer\[.*Added .* to IPFW table' | "$AWK" "$AWKPROG" | "$SORT" | "$UNIQ" -c
+

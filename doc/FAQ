@@ -1,0 +1,26 @@
+Q: I'm using the PF/IPF firewall, can I still use banhammer?
+A: Currently banhammer does not support any other firewall besides IPFW, but
+   you can use pf and ipfw together without any problems.
+   Create an ipfw ruleset like this:
+
+   ipfw add 10 deny ip from table\(1\) to any
+   ipfw add 10 deny ip from any to table\(1\)
+   ipfw add 20 allow all from any to any
+
+   and all incoming packets will be checked by ipfw and if they were not 
+   rejected, they will then be sent through pf.
+
+Q: I want to build my own regular expressions, how can I do this?
+A: banhammer uses either PCRE or POSIX regular expressions for the regular
+   expressions handling, depending on how you compiled it.
+   You can find the PCRE documentation located at http://www.pcre.org/pcre.txt
+   or at pcresyntax(3).The POSIX regular expression description can be found in 
+   re_format(7).
+   You need to build a regexp which matches log lines with brute force attempts.
+   The first found match must match either the remote IP address or a host name.
+   If you are using PCRE, instead of using the first match you can have a named
+   match called "host" that specifies the IP address or the host name.
+   You can test your regexp with "pcretest" utility from the PCRE distribution.
+   See the example configuration file and the security section of banhamer(8)
+   for some hints on how to construct safe regular expressions.
+   

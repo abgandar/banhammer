@@ -1,0 +1,7 @@
+bin/banhammer
+bin/banhammerd
+bin/banstat
+etc/banhammer.conf.sample
+etc/periodic/security/800.banstat
+man/man8/banhammer.8.gz
+

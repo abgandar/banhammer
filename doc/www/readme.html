@@ -1,0 +1,219 @@
+<?php require_once('oben.php.inc'); ?>
+<h1>README</h1>
+
+<h2>Installation</h2>
+<p>
+Installing banhammer is easiest using the FreeBSD port collection or the package
+in security/banhammer. Just type "<code>pkg install security/banhammer</code>"
+and you should be all set.</br>
+Alternatively, to compile and install banhammer from source, unpack the source
+code and follow these steps:
+</p>
+
+<ol>
+<li><code>./configure</code>
+   <p>This will configure banhammer to build on your system.</p>
+
+   <p><code>--with-pcre=[path]</code><br>build with PCRE library in path
+     The default is to look for the PCRE library in the standard path on
+     FreeBSD (<code>/usr/local</code>). If there is no PCRE library, banhammer 
+     will be built using POSIX regular expressions from the system libraries 
+     instead.</p>
+
+   <p>If IPFW3 is available banhammer will use the new IPFW3 kernel interface,
+    falling back to IPFW2 otherwise. If both IPFW3 and IPv6 are available,
+    banhammer will also be automatically built with support for blocking IPv6
+    addresses as well.</p>
+</li>
+<li><code>make</code>
+<p>Will build the binaries.</p>
+</li>
+<li><code>make install</code>
+<p>Installs the binaries into <code>$(PREFIX)/bin</code>, a sample configuration file 
+into <code>$(PREFIX)/etc</code> and the startup script into <code>$(PREFIX)/etc/rc.d</code>.</p></li>
+</ol>
+
+<h2>Setup</h2>
+<p>Once banhammer is installed in the system, you have to perform a few more
+steps to set up banhammer in the system.
+<ol>
+<li>Copy the sample configuration file <code>banhammer.conf.sample</code> in <code>$(PREFIX)/etc</code>
+to <code>banhammer.conf</code> and edit it to fit your needs.</li>
+<li><p>Edit <code>/etc/syslog.conf</code> and add an entry like this:<br/>
+<code>auth.info;authpriv.info &nbsp;&nbsp;&nbsp;&nbsp; |exec /usr/local/bin/banhammer</code><br/>
+Then restart syslogd (<code>service syslogd restart</code>).</p>
+<p>Edit <code>/etc/rc.conf</code> to enable banhammerd by adding the following lines, adjusting the 
+IPFW table numbers as needed:<br/>
+<code>banhammerd_enable = "YES"<br/>
+banhammerd_tables = "1"</code><br/>
+Then start banhammerd (<code>service banhammerd start</code>).</p>
+<p>Finally, adjust your IPFW rules to block (or otherwise treat) packets from
+addresses in your IPFW table. For example, you can execute<br/>
+<code>ipfw add 100 deny ip from me to table\(1\)</br>
+ipfw add 100 deny ip from table\(1\) to me</pre></code>
+</li>
+</ol>
+</p>
+
+<h2>Configuration</h2>
+<p>
+The entire banhammer configuration is stored in a configuration file,
+e.g. <code>banhammer.conf</code>.<br/>
+This file contains several groups of regular expressions to match messages
+from syslog against. Depending on the configuration options of each group,
+expressions in the group that match add an IP address to an IPFW table.
+The IP address to add is determined from either a regular expression match
+named "host" (only available if compiled with PCRE) or from the first match
+found in the regular expression. The match can either be the DNS name of the
+host to block, or an IPv4 address.</p>
+
+<p>Groups are defined by a line with comma separated group parameters enclosed
+in <code>[ ]</code>. For details of the group options, see the <a href="man.html">
+man page</a>.<br/>
+The group definition is then followed by the regular expressions in the group,
+each one on a separate line.</p>
+
+<h2>Examples</h2>
+<h3>OpenSSH 5.1</h3>
+<p>Matching lines such as:</p>
+
+<p>
+<pre style="overflow: scroll; background: #f0f0f0; border: 1px solid lightgray;">
+Jan  1 00:00:00 hostname sshd[72593]: Invalid user sam from 1.2.3.4
+Jan  1 00:00:00 hostname sshd[72593]: Failed password for illegal user max from evil.example.com
+Jan  1 00:00:00 hostname sshd[72626]: Failed password for jim from 1.2.3.4
+Jan  1 00:00:00 hostname sshd[87341]: Did not receive identification string from evil.example.com
+Jan  1 00:00:00 hostname sshd[4316]: User joe from 1.2.3.4 not allowed because not listed in AllowUsers
+</pre>
+</p>
+
+<p><i>Warning</i>: When legitimate users enter a wrong password, some ssh clients will 
+         try several authentication methods, causing several failures. Thus
+         one wrong user password may trigger several hits. Consider this
+         when choosing a value for "count".
+</p>
+
+<p>
+<pre style="overflow: scroll; background: #f0f0f0; border: 1px solid lightgray;">
+[table=1, within=90, reset=900, count=4]
+^.{15} [^ ]* sshd\[[[:digit:]]+\]: Invalid user [[:alnum:]]+ from ([[:alnum:].-]+)$
+^.{15} [^ ]* sshd\[[[:digit:]]+\]: Failed password for illegal user [[:alnum:]]+ from ([[:alnum:].-]+)$
+^.{15} [^ ]* sshd\[[[:digit:]]+\]: Failed password for [[:alnum:]]+ from ([[:alnum:].-]+)$
+^.{15} [^ ]* sshd\[[[:digit:]]+\]: Did not receive identification string from ([[:alnum:].-]+)$
+^.{15} [^ ]* sshd\[[[:digit:]]+\]: User [[:alnum:]]+ from ([[:alnum:].-]+) not allowed because not listed in AllowUsers$
+</pre>
+</p>
+
+<h3>ProFTPD</h3>
+<p>Matching lines such as:</p>
+
+<p>
+<pre style="overflow: scroll; background: #f0f0f0; border: 1px solid lightgray;">
+Jan  1 00:00:00 hostname proftpd[71905]: server.com (example.com[1.2.3.4]) - USER hacker: no such user
+Jan  1 00:00:00 hostname proftpd[72020]: server.com (example.com[1.2.3.4]) - USER hacker (Login failed)
+</pre>
+</p>
+
+<p>
+<pre style="overflow: scroll; background: #f0f0f0; border: 1px solid lightgray;">
+[table=1,within=120,count=2,reset=1000]
+^.{15} [^ ]* proftpd\[[[:digit:]]+\]: [[:alnum:].-]+ \([[:alnum:].-]*\[([[:alnum:].-]+)\]\) - USER [^[:space:]]+: no such user$
+^.{15} [^ ]* proftpd\[[[:digit:]]+\]: [[:alnum:].-]+ \([[:alnum:].-]*\[([[:alnum:].-]+)\]\) - USER [^[:space:]]+ \(Login failed\)$
+</pre>
+</p>
+
+<h3>Banhammer</h3>
+<p>Matching lines such as:</p>
+
+<p>
+<pre style="overflow: scroll; background: #f0f0f0; border: 1px solid lightgray;">
+Jan  1 00:00:00 hostname banhammer[78809]: Added 1.2.3.4 to IPFW table 1 for 887 seconds.
+Jan  1 00:00:00 hostname banhammer[8309]: Added 1.2.3.4 to IPFW table 2.
+</pre>
+</p>
+
+<p>
+This is a useful set of rules to permanently block repeat offenders
+by monitoring banhammer's very own output to identify blocked IPs.
+For this to work you need to also redirect security.* messages to
+banhammer in your /etc/syslogd.conf.
+</p>
+
+<p>
+<pre style="overflow: scroll; background: #f0f0f0; border: 1px solid lightgray;">
+[table=1,within=120,count=2,reset=1000]
+^.{15} [^ ]* banhammer\[[[:digit:]]+\]: Added ([[:digit:].]+) to IPFW table [[:digit:]]+\.$
+^.{15} [^ ]* banhammer\[[[:digit:]]+\]: Added ([[:digit:].]+) to IPFW table [[:digit:]]+ for [[:digit:]]+ seconds\.$
+</pre>
+</p>
+
+<h2>Configuration tips &amp; tricks</h2>
+<ul>
+<li>Some useful POSIX pattern to match IPs and hostnames with reasonable accuracy:
+<pre>
+   PATTERN                     MATCHES
+([[:digit:].]+)                IP4
+([[:xdigit:]:]+)               IP6
+([[:xdigit:]:.]+)              IP4, IP6
+([[:alnum:].-]+)               IP4, host name
+([[:alnum:]:.-]+)              IP4, IP6, host name
+</pre>
+</li>
+
+<li>Note that all hit counting happens within a group only. That is, a host that
+matches some regular expression in the first group, and then later in another
+group, will be counted as two separate hosts. The hits in the first group do
+not count towards the limit of the second group and vice versa.<br/>
+Hits by different regular expressions of the same group for a host, however,
+are counted towards the total hit count of that host.</li>
+
+<li>Groups allow the separation of blocking rules for different services,
+with fine grained control over the blocking actions to be taken.</li>
+
+<li>The maxhosts and maxaction settings can be used to protect against DDOS
+attacks. Instead of keeping track of every host that triggers one of the
+regular expressions, and giving each one &lt;count&gt; tries, only the first
+&lt;maxhosts&gt; hosts are watched.<br/>
+By blocking all further hosts right away, flooding or DDOS attacks are
+stopped at the earliest possible level by the IPFW firewall, before even
+reaching the application under attack.</li>
+
+<li>The warn setting can be used to prevent clobbering of the syslog if banhammer
+is used for more than just blocking hosts. For example, certain hosts may
+just be redirected through some traffic shaping pipes to limit their band-
+width, instead of blocking them.</li>
+</ul>
+
+<h2>Frequently asked questions</h2>
+<p>
+<b>Q:</b> I'm using the PF/IPF/... firewall, can I still use banhammer?<br/>
+<b>A:</b> Currently banhammer does not support any other firewall besides IPFW,
+   but you can use pf and ipfw together without any problems.
+   Create an ipfw ruleset like this:</p>
+
+<p>
+<pre>ipfw add 10 deny ip from table\(1\) to any
+ipfw add 10 deny ip from any to table\(1\)
+ipfw add 20 allow all from any to any</pre>
+</p>
+
+<p>This causes all incoming packets will be checked by ipfw and if they were not 
+rejected, they will then be sent through pf.</p>
+
+<p>
+<b>Q:</b> I want to build my own regular expressions, how can I do this?<br/>
+<b>A:</b> banhammer uses either PCRE or POSIX regular expressions for the regular
+   expressions handling, depending on how you compiled it.<br/>
+   Read the <a target="_blank" href="http://www.pcre.org/pcre.txt">PCRE documentation</a> or
+   the POSIX regular expression description in <a target="_blank" href="http://www.freebsd.org/cgi/man.cgi?query=re_format">re_format(7)</a>.<br/>
+   You need to build a regexp which matches log lines with brute force attempts.
+   The first found match must match either the remote IP address or a host name.
+   If you are using PCRE, instead of using the first match you can have a named
+   match called "host" that specifies the IP address or the host name.<br/>
+   You can test your regexp with "pcretest" utility from the PCRE distribution.
+   See the example configuration file for some hints on how to construct your 
+   regular expressions.
+</p>
+
+<?php require_once('unten.php.inc'); ?>
+

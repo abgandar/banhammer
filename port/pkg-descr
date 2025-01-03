@@ -1,0 +1,8 @@
+Banhammer allows system administrators to block various bruteforce
+attacks on UNIX services. The program analyzes system logs and adds
+attacker's IP addresses to IPFW tables.
+Addresses are automatically expunged from the tables after a specified
+amount of time. Banhammer uses regular expressions to parse logs,
+which provides flexibility allowing it to be used with almost any
+network service.  Banhammer is written entirely in C, doesn't rely on any
+external programs or libraries, and works with IPFW2.

@@ -1,0 +1,431 @@
+.Dd May 27, 2013
+.Dt banhammer 8
+.Os FreeBSD
+.Sh NAME 
+.Nm banhammer
+.Nd utility to block bruteforce attacks with IPFW
+.Sh SYNOPSIS 
+.Nm banhammer
+.Fl h
+|
+.Fl v
+|
+.Op Fl cVq
+.Op Fl d Ar directory
+.Op Fl f Ar configfile
+.\".Op Fl g Ar group
+.\".Op Fl u Ar user
+.Nm banhammerd
+.Fl h
+|
+.Fl L
+.Fl t Ar tables
+.Op Fl n
+|
+.Fl C
+.Fl t Ar tables
+|
+.Fl t Ar tables
+.Op Fl s Ar sleep
+.Op Fl S Ar statefile
+.Op Fl p Ar pidfile
+.Op Fl d Ar directory
+.Op Fl nfvq
+.Nm banstat
+.Op Ar logfile
+.Op Ar mode
+.Sh DESCRIPTION
+Banhammer allows system administrators to react to various kinds of
+external events such as bruteforce attacks on UNIX services. The 
+.Em banhammer
+program analyzes the system log (syslog), identifies the attacker's IP address,
+and adds it to an IPFW table. Depending on the firewall rules, this can then 
+block, throttle, or otherwise treat traffic from these IP addresses.
+Banhammer uses regular expressions to parse syslog lines, providing a great
+deal of flexibility. The regular expressions can be adapted to work with
+virtually any network service capable of logging to syslog. On modern versions
+of FreeBSD (9.1 and upward) with IPFW3, banhammer supports both IPv4 and IPv6 
+address blocking. On older systems, banhammer only supports IPv4 addresses.
+.Pp
+Once added to an IPFW table, addresses are automatically expunged from the IPFW
+table after a configurable time by the
+.Em banhammerd
+daemon.
+.Pp
+.Ss banhammer
+.Em banhammer
+is mainly intended to be used in
+.Pa /etc/syslog.conf
+to pipe logs into. It performs a line by line analysis of its standard input,
+identifies IP addresses, and adds them to their respective IPFW tables. Along
+with the address and netmask, every entry in the IPFW tables has a
+.Em value
+field, which is used by banhammer to store the expiration time as 32
+bit UNIX timestamp. 
+.Pp
+The following command line options are available for banhammer:
+.Bl -tag -width indent
+.It Fl h
+Display a short help message and exits.
+.It Fl v
+Shows version and various build time options and exits.
+.It Fl V
+Increases the logging level. Can be repeated several times to 
+increase the logging level further.
+.It Fl c
+Only check the configuration file(s) provided for correctness and exit
+without performing any analysis.
+.It Fl q
+Decrease the logging level. Can be repeated several times to decrease 
+the logging level further.
+.It Fl d Ar directory
+After reading all configuration files, change the root directory of the
+process to the specified directory for increased security.
+.It Fl f Ar configfile
+Specifies a configuration file to be read. Several configuration files
+can be specified by using this switch repeatedly. Configuration files
+are read and processed in the order specified.
+If no configuration file is specified, banhammer will try to load the
+default configuration file at
+.Pa /usr/local/etc/banhammer.conf .
+.\".It Fl g Ar group
+.\"After reading all configuration files, change the current group of the
+.\"process to the specified group for increased security.
+.\".It Fl u Ar user
+.\"After reading all configuration files, change the current user of the
+.\"process to the specified user for increased security.
+.Pp
+Note that for DNS resolution to work, you have to copy the file
+.Pa /etc/resolv.conf
+into the same location relative to the new root directory.
+.El
+.Ss banhammerd
+.Em banhammerd
+primarily is a daemon, which checks the specified IPFW tables
+periodically, and expunges expired entries. If a state file is given, the
+IPFW tables are filled with the entries read from the state file at startup and
+the current entries in each IPFW table are written to the state file upon
+program termination. This allows the blocking state to be persistent accross
+system restarts.
+.Pp
+The following command line options are available for banhammerd:
+.Bl -tag -width indent
+.It Fl h
+Display a short help message and exit.
+.It Fl t Ar tables
+Specify the numbers of the IPFW tables to operate on. Several tables can be 
+specified as a comma separated list such as
+.Ar 1,2,7,10
+or by repeatedly specifying the 
+.Fl t
+switch.
+.It Fl L
+Print a list of IP addresses in the specified IPFW tables and their
+associated timeout values and exit.
+.It Fl C
+Expunge expired entries from the specified IPFW tables and exit ("cron mode").
+.It Fl s Ar sleep
+Specify the interval in seconds between checking the tables when running as a 
+daemon.
+.It Fl S Ar statefile
+Specify the location of the state file for the IPFW table states.
+.It Fl p Ar pidfile
+Specify the location of the pid file of the daemonized process.
+.It Fl d Ar directory
+Change the root directory of the process to the specified directory
+for increased security after daemonizing.
+.Pp
+Note that for DNS resolution to work, you have to copy the file
+.Pa /etc/resolv.conf
+into the same location relative to the new root directory.
+.It Fl n
+When listing table entries, do not attempt to resolve IPs to DNS names.
+.It Fl f
+Run the daemon in the foreground (do not daemonize).
+.It Fl V
+Increases the logging level. Can be repeated several times to
+increase the logging level further.
+.It Fl q
+Decrease the logging level. Can be repeated several times to decrease
+the logging level further.
+.El
+.Pp
+.Ss banstat
+.Em banstat
+is a small script to extract and display IP addresses added to IPFW by
+.Em banhammer .
+By default, it analyzes the log file
+.Pa /var/log/security
+where the 
+.Em banhammer
+log is written to on an unmodified FreeBSD system. A different log file (also 
+a compressed log file) can be specified as the first argument to
+.Em banstat .
+The second argument is the mode, either
+.Ar tab
+or
+.Ar all ,
+which specifies if IP counting is to be performed by table or accumulated over
+all tables.
+.Pp
+Daily 
+.Em banstat
+activity reports can be included in the
+.Xr periodic 8
+security output by enabeling it in
+.Xr periodic.conf 5
+by adding the following line:
+.Bd -literal
+daily_banstat_enable="YES"
+.Ed .
+.Sh IMPLEMENTATION NOTES
+The design outlined above allows to avoid any IPC between the two
+processes, while still allowing different services to be added to
+different tables. It also makes it is easy for the administrator
+to get a list of currently blocked addresses and use
+.Xr ipfw 8
+to edit the list of IP addresses manually if necessary.
+.Pp
+If compiled with the PCRE library
+.Xr pcre 3 ,
+banhammer will use the more advanced
+PERL compatible regular expressions. Otherwise banhammer relies on
+POSIX regular expressions as documented in 
+.Xr re_format 7 .
+.Sh FILES
+The configuration file for
+.Em banhammer
+has a powerful syntax to allow fine tuning of almost all aspects of banhammer.
+.Pp
+The configuration file consists of several groups of regular expressions
+to match syslog messages against line by line. Lines starting with # are
+considered to be comments and are ignored.
+Matching expressions in a group are used to extract a host (either an IP address
+or DNS name) from the message. This is done by taking the regular expression
+match named "host" (only available if compiled with PCRE) or the first match
+found in the regular expression.
+Each hit for a host is counted, and when the configured limit for that group is 
+reached, the IP address of the host is added to the IPFW table specified in the 
+group options.
+.Pp
+Groups are defined by one line of comma separated group parameters enclosed
+in square brackets. The group definition is then followed by the regular
+expressions in the group, each one in a separate line without delimiters.
+A group is ended by an empty line.
+.Pp
+The options to define the behaviour of a group are
+.Bl -tag -width indent
+.It Ar table Ns = Ns Ar <number>
+IPFW table number to add IP addresses to (default: 1)
+.It Ar count Ns = Ns Ar <number>
+Number of hits required before a host is added to the list (default: 4)
+.It Ar within Ns = Ns Ar <number>
+Time in seconds after the first hit, within which the number of hits must occur
+(default: 60)
+.It Ar reset Ns = Ns Ar <number>
+Time in seconds after which a host is to be expunged from the table, or zero
+for permanent entries (default: 600)
+.It Ar random Ns = Ns Ar <number>
+Maximum precentage by which to randomly vary the reset time
+.Ar reset
+for every blocking event (default: 30)
+.It Ar continue Ns = Ns Ar no|yes|next
+Determine behaviour after an input line has matched a regular expression
+(default: no)
+.Bl -tag -width indent
+.It Ar no
+Terminate search after first match
+.It Ar yes
+Continue matching with next regular expression in this group
+.It Ar next
+Continue matching with first regular expression in the next group
+.El
+.It Ar warnfail Ns = Ns Ar no|yes
+Write warnings to syslog if a host keeps producing hits after it has
+been blocked (default: no)
+.It Ar onfail Ns = Ns Ar block|none
+Action to take when a host keeps producing hits after it has been blocked
+(default: block)
+.Bl -tag -width indent
+.It Ar block
+Try again to add the host to IPFW table
+.It Ar none
+Ignore the additional hits and do nothing
+.El
+.It Ar maxhosts Ns = Ns Ar <number>
+Maximum number of hosts to keep on watch list, or 0 for no limit (default: 0)
+.It Ar warnmax Ns = Ns Ar no|yes
+Write warning to syslog if a new host has been matched, but
+.Ar maxhosts
+is exceeded (default: yes)
+.It Ar onmax Ns = Ns Ar block|none
+Action to take when a new host has been matched, but 
+.Ar maxhosts
+is exceeded (default: block)
+.Bl -tag -width indent
+.It Ar block
+Immediately add new host to IPFW table
+.It Ar none
+Ignore the new host and do nothing
+.El
+.It Ar blocklocal Ns = Ns Ar no|yes
+Allow local interface addresses to be added to the IPFW table (default: no)
+.El
+.Pp
+The state file format used by
+.Em bruteblockd
+is a simple text file in which each line provides an IPFW table number, an
+associated value, and an IP address separated by a single tab or space. Lines 
+starting with # are considered comments and are ignored.
+.Sh SECURITY
+Automated manipulation of IPFW tables has various security implications 
+depending on the actual configuration used. In this section, some of the obvious 
+implications and ways to mitigate them are described.
+.Pp
+Anyone who can log arbitrary lines to syslog can use
+.Nm banhammer
+as a way to perpetrate a DOS attack against any IP address by logging messages
+that trigger one of the regular expressions.
+To protect against log entries by programs that log unfiltered user input
+all regular expressions should be carefully written to match as specific a
+message as possible. Also, they should be ancored to the start of the line
+and check for the name of the program that generated the log message.
+On FreeBSD, this can be achieved e.g. by prepending
+^.{15} [^ ]* PROGRAM\\[[[:digit:]]+\]:
+to the regular expression matching the actual log message generated by
+PROGRAM.
+.Pp
+By default
+.Nm banhammer
+will not allow blocking of IP addresses associated with a local network
+interface. This is a failsafe to prevent accidental or malicious interference
+with local networking capabilities. If local IP addresses should really be added
+to IPFW tables as well, the
+.Ar blocklocal
+group option can be used to disable the check.
+.Pp
+The state file given to
+.Nm banhammerd 
+must be owned by root and have write permission only for the owner in order for
+the configuration in the given file to be loaded into the IPFW tables at
+startup.
+When the file is written,
+.Nm banhammerd
+will automatically change it to have root ownership and 0600 file permissions.
+This is to prevent users other than root from tampering with IPFW tables.
+.Sh EXAMPLES
+To get banhammer working, you first need to establish a log process to
+parse the syslogs.
+.Pp
+Edit
+.Pa /etc/syslog.conf
+and add the following entry:
+.Bd -literal
+auth.info;authpriv.info	| exec /usr/local/bin/banhammer
+.Ed
+.Pp
+then restart syslogd using
+.Ic service syslogd restart
+.Pp
+Next copy the sample banhammer configuration file
+.Pa /usr/local/etc/banhammer.conf.dist
+to
+.Pa /usr/local/etc/banhammer.conf
+and edit it to suit your needs. It includes examples matching OpenSSH 5.1 log
+messages as well as some ProFTP log messages. 
+.Pp
+You should also setup the banhammerd daemon to periodically expunge
+your IPFW tables.
+To use the banhammerd daemon, just add following lines to
+.Pa /etc/rc.conf :
+.Bd -literal
+banhammerd_enable="YES"
+banhammerd_tables="1,2,3"
+banhammerd_sleep="120"
+banhammerd_statefile="/var/db/banhammerd.state"
+.Ed
+.Pp
+Don't forget to change the table numbers and sleep interval to suit your
+needs. Also consider if you really want the IPFW table state to be persistent, 
+otherwise remove the last line.
+The banhammerd daemon will automatically start after the next system reboot.
+To launch it manually, run
+.Ic service banhammerd start
+.Pp
+Finally, setup your IPFW rules to handle IP addresses in the tables
+you specified in the configuration file.
+To simply block addresses contained in IPFW table 1, for example, execute
+.Bd -literal
+.Ic ipfw add 100 deny ip from me to table(1)
+.Ic ipfw add 100 deny ip from table(1) to me
+.Ed
+.Pp
+or edit your firewall configuration in
+.Pa /etc/rc.firewall
+to include similar commands.
+.Pp
+To see the activity report for banhammer, you can simply type
+.Ic banstat .
+.Pp
+If you want to receive daily activity reports from banhammer as part of your
+.Xr periodic 8
+security output, add the following line to
+.Pa /etc/periodic.conf :
+.Bd -literal
+daily_banstat_enable="YES"
+.Ed
+.Sh HINTS
+All hit counting happens within each group separately. Hits in different groups
+do not count towards each others limits. Hits of the same host by different
+regular expressions in the same group, however, do count towards the total hit
+count of that host.
+.Pp
+Groups allow the separation of blocking rules for different services,
+with fine grained control over the blocking actions to be taken.
+.Pp
+The
+.Ar maxhosts
+and
+.Ar onmax
+settings can be used to protect against DDOS attacks. Instead of keeping track
+of every host that triggers one of the regular expressions, and giving each one
+.Ar count
+tries, only the first
+.Ar maxhosts
+hosts are watched.
+By blocking all further hosts triggering one of the regular expressions right 
+away, flooding or DDOS attacks are stopped at the earliest possible level by the
+IPFW firewall, before even reaching the application under attack.
+.Pp
+The
+.Ar warnfail
+and
+.Ar onfail
+settings can be used to prevent unnecessary blocking actions and clobbering of
+the syslog if banhammer is used for more than just blocking hosts. For example,
+certain hosts may just be subjected to traffic shaping to limit their bandwidth,
+instead of blocking them. In that case legitimate hits may be generated even
+after the host has been added to the appropriate IPFW table.
+.Pp
+Banhammer reloads its configuration file when it receives the SIGHUP signal.
+Note, however, that when changing the root directory or switching the user or
+group this will most likely not be possible and banhammer will exit instead
+with an error message.
+.Sh SEE ALSO
+.Xr pcre 3 ,
+.Xr rc.conf 5 ,
+.Xr periodic.conf 5 ,
+.Xr syslog.conf 5 ,
+.Xr re_format 7 ,
+.Xr ipfw 8 ,
+.Xr periodic 8
+.Sh AUTHORS
+.Nm
+is developed by
+.An Alexander Wittig Aq alexander (at) wittig.name ,
+.Ad https://alex.wittig.name/en/90Software/80Banhammer/index.html
+.Pp
+.Nm
+is inspired by and originally based on bruteblock by
+.An Alex Samorukov Aq samm (at) os2.kiev.ua ,
+.Ad http://samm.kiev.ua/bruteblock/
