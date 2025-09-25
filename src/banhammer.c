@@ -929,8 +929,8 @@ int mainLoop( int argc, char *argv[] )
                     if( rc != PCRE2_ERROR_NOMATCH )
                         syslog( LOG_ERR, "Error in pcre2_match for regexp '%s' with subject '%s' (rc=%d).", rptr->exp, line, rc );
                 }
-                else if( (pcre2_substring_get_byname( md, (unsigned char*)"host", &hostname, &hostlen ) > 0) ||
-                         (pcre2_substring_get_bynumber( md, 1, &hostname, &hostlen ) > 0) )
+                else if( (pcre2_substring_get_byname( md, (unsigned char*)"host", &hostname, &hostlen ) == 0) ||
+                         (pcre2_substring_get_bynumber( md, 1, &hostname, &hostlen ) == 0) )
                 {
                     // we caught a bad guy!
                     if( loglevel >= 3 )
