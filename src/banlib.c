@@ -1,15 +1,15 @@
 /*
  Copyright 2013-2015 Alexander Wittig. All rights reserved.
- 
- Redistribution and use in source and binary forms, with or without 
+
+ Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
- 
+
  1. Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  2. Redistributions in binary form must reproduce the above copyright notice,
  this list of conditions and the following disclaimer in the documentation
  and/or other materials provided with the distribution.
- 
+
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -99,8 +99,9 @@ int fw_del( struct sockaddr* addr, socklen_t addrlen, u_int16_t table )
 // Opcode is BANLIB_ADD or BANLIB_DEL
 static int fw_table_cmd( int opcode, struct sockaddr* addr, socklen_t addrlen, u_int32_t value, u_int16_t table )
 {
-    ip_fw3_opheader *op3;
-    ipfw_table_xentry *ent;
+    ipfw_obj_header *oh;
+	ipfw_obj_ctlv *ctlv;
+	ipfw_obj_tentry *tent;
     socklen_t l;
     int rc;
 
@@ -108,48 +109,61 @@ static int fw_table_cmd( int opcode, struct sockaddr* addr, socklen_t addrlen, u
         return -1;
 
     // prepare IPFW3 command
-    l = sizeof(ip_fw3_opheader) + sizeof(ipfw_table_xentry);
-    op3 = calloc( 1, l );
-    if( !op3 ) return -1;
-    op3->opcode = (opcode == BANLIB_ADD) ? IP_FW_TABLE_XADD : IP_FW_TABLE_XDEL ;
-    ent = (ipfw_table_xentry*)(op3 + 1);
-    ent->tbl = table;
-    ent->type = IPFW_TABLE_CIDR;
-    ent->value = value;
+    l = sizeof(ipfw_obj_header) + sizeof(ipfw_obj_ctlv) + sizeof(ipfw_obj_tentry);
+    oh = (ipfw_obj_header*)calloc( 1, l );
+    if( !oh ) return -1;
+    oh->opheader.opcode = (opcode == BANLIB_ADD) ? IP_FW_TABLE_XADD : IP_FW_TABLE_XDEL;
+    oh->opheader.version = 1;
+    oh->ntlv.head.type = IPFW_TLV_TBL_NAME;
+    oh->ntlv.head.length = sizeof(ipfw_obj_ntlv);
+    oh->ntlv.idx = 1;
+	oh->ntlv.set = 0;
+    snprintf( oh->ntlv.name, sizeof(oh->ntlv.name), "%hu", table );
+    oh->idx = 1;
+
+    ctlv = (ipfw_obj_ctlv*)(oh + 1);
+    ctlv->count = 1;
+    ctlv->flags = IPFW_TF_UPDATE;
+    ctlv->head.length = sizeof(*ctlv) + sizeof(*tent);
+
+    tent = (ipfw_obj_tentry*)(ctlv + 1);
+    tent->head.length = sizeof(ipfw_obj_tentry);
+    tent->idx = oh->idx;
+    tent->v.value.tag = value;
 
     switch( addr->sa_family )
     {
         case AF_INET:
             if( addrlen < sizeof(struct in_addr) )
             {
-                free( op3 );
+                free( oh );
                 return 1;
             }
-            ent->len = offsetof(ipfw_table_xentry,k) + sizeof(struct in_addr);
-            ent->masklen = 32;
-            memcpy( &ent->k.addr6, &((struct sockaddr_in*)addr)->sin_addr, sizeof(struct in_addr) );
+            tent->subtype = AF_INET;
+            tent->masklen = 32;
+            tent->k.addr = ((struct sockaddr_in*)addr)->sin_addr;
             break;
 
 #ifdef WITH_IPV6
         case AF_INET6:
             if( addrlen < sizeof(struct in6_addr) )
             {
-                free( op3 );
+                free( oh );
                 return 1;
             }
-            ent->len = offsetof(ipfw_table_xentry,k) + sizeof(struct in6_addr);
-            ent->masklen = 128;
-            memcpy( &ent->k.addr6, &((struct sockaddr_in6*)addr)->sin6_addr, sizeof(struct in6_addr) );
+            tent->subtype = AF_INET6;
+            tent->masklen = 128;
+            tent->k.addr6 = ((struct sockaddr_in6*)addr)->sin6_addr;
             break;
 #endif
 
         default:
-            free( op3 );
+            free( oh );
             return 1;
     }
 
-    rc = setsockopt( ipfw_socket, IPPROTO_IP, IP_FW3, op3, l );
-    free( op3 );
+    rc = setsockopt( ipfw_socket, IPPROTO_IP, IP_FW3, &(oh->opheader), l );
+    free( oh );
     return rc;
 }
 
@@ -159,11 +173,11 @@ static int fw_table_cmd( int opcode, struct sockaddr* addr, socklen_t addrlen, u
 // always reflects the unaltered state of the table for all callbacks.
 int fw_list( void (*callback)(struct sockaddr*, socklen_t, u_int32_t, u_int16_t), u_int16_t table )
 {
-    ipfw_xtable *tab;
-    ip_fw3_opheader *op3;
+    ipfw_obj_header *oh;
+    ipfw_xtable_info ti;
+	ipfw_obj_tentry *tent;
     struct in6_addr *addr6;
     socklen_t l;
-    uint32_t *i;
     int rc;
     struct sockaddr_in sa4 = {0};
 #ifdef WITH_IPV6
@@ -173,34 +187,46 @@ int fw_list( void (*callback)(struct sockaddr*, socklen_t, u_int32_t, u_int16_t)
     if( ipfw_socket == -1 )
         return -1;
 
-    // obtain number of table entries
-    l = sizeof(ip_fw3_opheader) + sizeof(uint32_t);
-    if( (op3 = (ip_fw3_opheader*) calloc( 1, l )) == NULL )
+    // obtain table info
+    l = sizeof(ipfw_obj_header) + sizeof(ipfw_xtable_info);
+    if( (oh = (ipfw_obj_header*) calloc( 1, l )) == NULL )
         return 1;
-    op3->opcode = IP_FW_TABLE_XGETSIZE;
-    i = (uint32_t*) (op3 + 1);
-    *i = table;
-    rc = getsockopt( ipfw_socket, IPPROTO_IP, IP_FW3, op3, &l );
-    free( op3 );
+    oh->opheader.opcode = IP_FW_TABLE_XINFO;
+    oh->opheader.version = 1;
+    oh->ntlv.head.type = IPFW_TLV_TBL_NAME;
+    oh->ntlv.head.length = sizeof(ipfw_obj_ntlv);
+    oh->ntlv.idx = 1;
+	oh->ntlv.set = 0;
+    snprintf( oh->ntlv.name, sizeof(oh->ntlv.name), "%hu", table );
+    oh->idx = 1;
+    rc = getsockopt( ipfw_socket, IPPROTO_IP, IP_FW3, &(oh->opheader), &l );
     if( rc < 0 )
-        return 1;
-    l = *i;
-
-    // obtain all l table entries
-    if( l == 0 )
-        return 0;
-    if( (tab = (ipfw_xtable*) calloc( 1, l )) == NULL )
-        return 1;
-    tab->opheader.opcode = IP_FW_TABLE_XLIST;
-    tab->tbl = table;
-    if( getsockopt( ipfw_socket, IPPROTO_IP, IP_FW3, tab, &l ) < 0)
     {
-        free( tab );
+        free( oh );
         return 1;
     }
-    if( tab->type != IPFW_TABLE_CIDR )
+    ti = *((ipfw_xtable_info*)(oh + 1));
+    free( oh );
+
+    // obtain all table entries
+    if( ti.count == 0 )
+        return 0;
+    if( ti->type != IPFW_TABLE_ADDR )
+        return 1;
+    l = sizeof(ipfw_obj_header) + sizeof(ipfw_xtable_info) + ti.size;
+    if( (oh = (ipfw_obj_header*) calloc( 1, l )) == NULL )
+        return 1;
+    oh->opheader.opcode = IP_FW_TABLE_XLIST;
+    oh->opheader.version = 1;
+    oh->ntlv.head.type = IPFW_TLV_TBL_NAME;
+    oh->ntlv.head.length = sizeof(ipfw_obj_ntlv);
+    oh->ntlv.idx = 1;
+	oh->ntlv.set = 0;
+    snprintf( oh->ntlv.name, sizeof(oh->ntlv.name), "%hu", table );
+    oh->idx = 1;
+    if( getsockopt( ipfw_socket, IPPROTO_IP, IP_FW3, tab, &l ) < 0)
     {
-        free( tab );
+        free( oh );
         return 1;
     }
 
@@ -209,26 +235,28 @@ int fw_list( void (*callback)(struct sockaddr*, socklen_t, u_int32_t, u_int16_t)
 #ifdef WITH_IPV6
     sa6.sin6_family = AF_INET6;
 #endif
-    for( l = 0; l < tab->cnt; l++ )
+    tent = (ipfw_obj_tentry *)(((ipfw_xtable_info *)(oh + 1)) + 1);
+    for( l = 0; l < ti->count; l++ )
     {
-        addr6 = &tab->xent[l].k.addr6;
+        addr6 = &tent->k.addr6;
         // IPFW3 returns IPv4 addresses as deprecated IPv6 compatible addresses
         // in XLIST mode (see /sbin/ipfw/ipfw2.c)
         if( IN6_IS_ADDR_V4COMPAT( addr6 ) )
         {
             sa4.sin_addr.s_addr = addr6->__u6_addr.__u6_addr32[3];
-            (*callback)( (struct sockaddr*)&sa4, sizeof(sa4), tab->xent[l].value, table );
+            (*callback)( (struct sockaddr*)&sa4, sizeof(sa4), tent->v.value.tag, table );
         }
 #ifdef WITH_IPV6
         else
         {
             sa6.sin6_addr = *addr6;
-            (*callback)( (struct sockaddr*)&sa6, sizeof(sa6), tab->xent[l].value, table );
+            (*callback)( (struct sockaddr*)&sa6, sizeof(sa6), tent->v.value.tag, table );
         }
 #endif
+        tent = (ipfw_obj_tentry *)((caddr_t)tent + tent->head.length);
     }
 
-    free( tab );
+    free( oh );
     return 0;
 }
 #else // !HAVE_IPFW3
@@ -290,7 +318,7 @@ int fw_list( void (*callback)(struct sockaddr*, socklen_t, u_int32_t, u_int16_t)
         sa4.sin_addr.s_addr = tab->ent[i].addr;
         (*callback)( (struct sockaddr*)&sa4, sizeof(sa4), tab->ent[i].value, table );
     }
-    
+
     free( tab );
     return 0;
 }
@@ -370,7 +398,7 @@ int isLocal( struct sockaddr *sa )
         ifa = ifa->ifa_next;
     }
 
-    return 0;    
+    return 0;
 }
 
 // Add the given host (DNS name or IP address) to firewall table.
