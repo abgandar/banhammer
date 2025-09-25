@@ -438,7 +438,7 @@ int addRegexp( char* exp, struct bgroup* g )
     // check to see if the RE has at least one match
     if( pcre2_pattern_info( nptr->re, PCRE2_INFO_CAPTURECOUNT, &i ) || (i < 1) )
     {
-        pcre_free( nptr->re );
+        pcre2_code_free( nptr->re );
         free( nptr );
         return ERR_INVALID_REGEXP;
     }
@@ -878,11 +878,11 @@ int mainLoop( int argc, char *argv[] )
         STAILQ_FOREACH( rptr, &gptr->regexps, next )
         {
 #ifdef HAVE_LIBPCRE2
-            rc = pcre2_pattern_info( rptr->re, PCRE_INFO_CAPTURECOUNT, &i );
+            rc = pcre2_pattern_info( rptr->re, PCRE2_INFO_CAPTURECOUNT, &i );
             if( rc < 0 )
             {
-                syslog( LOG_ERR, "Error getting number of PCRE regexp subpattern for '%s' (rc=%d).", rptr->exp, rc );
-                warnx( "Error getting number of PCRE regexp subpattern for '%s' (rc=%d)", rptr->exp, rc );
+                syslog( LOG_ERR, "Error getting number of PCRE2 regexp subpattern for '%s' (rc=%d).", rptr->exp, rc );
+                warnx( "Error getting number of PCRE2 regexp subpattern for '%s' (rc=%d)", rptr->exp, rc );
                 return( EX_SOFTWARE );
             }
             if( i > ovlength )
@@ -926,8 +926,8 @@ int mainLoop( int argc, char *argv[] )
 
                 if( rc <= 0 )
                 {
-                    if( rc != PCRE_ERROR_NOMATCH )
-                        syslog( LOG_ERR, "Error in pcre_exec for regexp '%s' with subject '%s' (rc=%d).", rptr->exp, line, rc );
+                    if( rc != PCRE2_ERROR_NOMATCH )
+                        syslog( LOG_ERR, "Error in pcre2_match for regexp '%s' with subject '%s' (rc=%d).", rptr->exp, line, rc );
                 }
                 else if( (pcre2_substring_get_byname( md, "host", &hostname, &hostlen ) > 0) ||
                          (pcre2_substring_get_bynumber( md, 1, &hostname, &hostlen ) > 0) )
