@@ -238,18 +238,15 @@ int fw_list( void (*callback)(struct sockaddr*, socklen_t, u_int32_t, u_int16_t)
     tent = (ipfw_obj_tentry *)(((ipfw_xtable_info *)(oh + 1)) + 1);
     for( l = 0; l < ti.count; l++ )
     {
-        addr6 = &tent->k.addr6;
-        // IPFW3 returns IPv4 addresses as deprecated IPv6 compatible addresses
-        // in XLIST mode (see /sbin/ipfw/ipfw2.c)
-        if( IN6_IS_ADDR_V4COMPAT( addr6 ) )
+        if( tent->subtype == AF_INET )
         {
-            sa4.sin_addr.s_addr = addr6->__u6_addr.__u6_addr32[3];
+            sa4.sin_addr = tent->k.addr;
             (*callback)( (struct sockaddr*)&sa4, sizeof(sa4), tent->v.value.tag, table );
         }
 #ifdef WITH_IPV6
         else
         {
-            sa6.sin6_addr = *addr6;
+            sa4.sin6_addr = tent->k.addr6;
             (*callback)( (struct sockaddr*)&sa6, sizeof(sa6), tent->v.value.tag, table );
         }
 #endif
