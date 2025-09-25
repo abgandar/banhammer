@@ -46,7 +46,7 @@
 //#include <pwd.h>
 //#include <grp.h>
 
-#ifdef HAVE_LIBPCRE
+#ifdef HAVE_LIBPCRE2
     #include <pcre2.h>
 #else
     #include <regex.h>
@@ -77,7 +77,7 @@ const char* error_messages[] = {
     "Invalid group line (missing [ ])",
     "Invalid group line (invalid key)",
     "Invalid group line (invalid value)",
-#ifdef HAVE_LIBPCRE
+#ifdef HAVE_LIBPCRE2
     "Invalid regular expression or no matches defined",
 #else
     "Invalid regular expression or no matches defined (maybe not a POSIX regex?)",
@@ -98,7 +98,7 @@ STAILQ_HEAD( _hosts, host );
 
 // linked list of the regexps
 struct regexp {
-#ifdef HAVE_LIBPCRE
+#ifdef HAVE_LIBPCRE2
     pcre2_code* re;             // Compiled pattern
 #else
     regex_t re;                 // Compiled pattern
@@ -154,7 +154,7 @@ static const struct option longopts[] = {
      { NULL, 0, NULL, 0 }
 };
 
-#ifndef HAVE_LIBPCRE
+#ifndef HAVE_LIBPCRE2
 // Extract a match from regexp result
 static int regex_get_substring( const char* line, regmatch_t* pmatch, char** hostname )
 {
@@ -195,7 +195,7 @@ static void usage( )
 static void version( )
 {
     fprintf( stderr, PACKAGE_STRING "\n\n" );
-#ifdef HAVE_LIBPCRE
+#ifdef HAVE_LIBPCRE2
 #define _STRINGIFY(x) #x
 #define STRINGIFY(x) _STRINGIFY(x)
     char ver[64];
@@ -411,7 +411,7 @@ void signalHandler( int sig )
 // Add a regular expression to the group g
 int addRegexp( char* exp, struct bgroup* g )
 {
-#ifdef HAVE_LIBPCRE
+#ifdef HAVE_LIBPCRE2
     int error;
     PCRE2_SIZE offset;
 #endif
@@ -426,7 +426,7 @@ int addRegexp( char* exp, struct bgroup* g )
     if( !nptr )
         err( EX_OSERR, "%s", error_messages[ERR_OUT_OF_MEMORY] );
 
-#ifdef HAVE_LIBPCRE
+#ifdef HAVE_LIBPCRE2
     nptr->re = pcre2_compile( (PCRE2_SPTR)exp, PCRE2_ZERO_TERMINATED, PCRE2_CASELESS, &error, &offset, NULL );
     if( !nptr->re )
     {
@@ -738,7 +738,7 @@ int mainLoop( int argc, char *argv[] )
     size_t length;
 //    struct passwd *pwd;
 //    struct group *grp;
-#ifdef HAVE_LIBPCRE
+#ifdef HAVE_LIBPCRE2
     int ovlength = 0;
     pcre2_match_data *md;
     PCRE2_UCHAR *hostname;
@@ -876,7 +876,7 @@ int mainLoop( int argc, char *argv[] )
     STAILQ_FOREACH( gptr, &groups, next )
         STAILQ_FOREACH( rptr, &gptr->regexps, next )
         {
-#ifdef HAVE_LIBPCRE
+#ifdef HAVE_LIBPCRE2
             rc = pcre2_pattern_info( rptr->re, PCRE_INFO_CAPTURECOUNT, &i );
             if( rc < 0 )
             {
@@ -892,7 +892,7 @@ int mainLoop( int argc, char *argv[] )
 #endif
         }
 
-#ifdef HAVE_LIBPCRE
+#ifdef HAVE_LIBPCRE2
     md = pcre2_match_data_create( ovlength, NULL );
     if( !md )
     {
@@ -920,7 +920,7 @@ int mainLoop( int argc, char *argv[] )
             done = 0;
             STAILQ_FOREACH( rptr, &gptr->regexps, next )
             {
-#ifdef HAVE_LIBPCRE
+#ifdef HAVE_LIBPCRE2
                 rc = pcre2_match( rptr->re, (PCRE2_SPTR)line, length, 0, PCRE2_NOTEMPTY, md, NULL );
 
                 if( rc <= 0 )
@@ -982,7 +982,7 @@ int mainLoop( int argc, char *argv[] )
     // save the return code in case we were interrupted (e.g. by SIGHUP)
     rc = errno;
 
-#ifdef HAVE_LIBPCRE
+#ifdef HAVE_LIBPCRE2
     pcre2_match_data_free( md );
 #else
     free( pmatch );
@@ -997,7 +997,7 @@ int mainLoop( int argc, char *argv[] )
             rptr = STAILQ_FIRST( &gptr->regexps );
             STAILQ_REMOVE_HEAD( &gptr->regexps, next );
             free( rptr->exp );
-#ifdef HAVE_LIBPCRE
+#ifdef HAVE_LIBPCRE2
             pcre2_code_free( rptr->re );
 #else
             regfree( &rptr->re );
