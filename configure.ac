@@ -42,35 +42,35 @@ AM_FUNC_GETLINE
 # Check for libutil
 AC_CHECK_LIB([util], [pidfile_open], [LIBS="$LIBS -lutil"], [AC_MSG_ERROR([Did not find FreeBSD libutil])] )
 
-# Try to find PCRE unless deactivated
-AC_ARG_WITH([pcre],
-            [AS_HELP_STRING([--with-pcre=[[prefix]]],[Use PCRE regex library @<:@default=check@:>@])],
+# Try to find PCRE2 unless deactivated
+AC_ARG_WITH([pcre2],
+            [AS_HELP_STRING([--with-pcre2=[[prefix]]],[Use PCRE2 regex library @<:@default=check@:>@])],
             [],
-            [with_pcre="check"]
+            [with_pcre2="check"]
 )
-AS_IF([test ".$with_pcre" != ".no"],
+AS_IF([test ".$with_pcre2" != ".no"],
   [
     # if a path is provided, use that, otherwise try to guess one
-    AS_IF([test -d $with_pcre],
-        [pcre_path="$with_pcre"],
+    AS_IF([test -d $with_pcre2],
+        [pcre2_path="$with_pcre2"],
         [AS_IF([test -d "${prefix}"],
-            [pcre_path="${prefix}"],
-            [pcre_path="/usr/local"])
+            [pcre2_path="${prefix}"],
+            [pcre2_path="/usr/local"])
         ]
     )
-    OLDLDFLAGS="$LDFLAGS"; LDFLAGS="$LDFLAGS -L$pcre_path/lib"
-    OLDCPPFLAGS="$CPPFLAGS"; CPPFLAGS="$CPPFLAGS -I$pcre_path/include"
-    AC_CHECK_LIB([pcre],[pcre_compile],
+    OLDLDFLAGS="$LDFLAGS"; LDFLAGS="$LDFLAGS -L$pcre2_path/lib"
+    OLDCPPFLAGS="$CPPFLAGS"; CPPFLAGS="$CPPFLAGS -I$pcre2_path/include"
+    AC_CHECK_LIB([pcre2],[pcre2_compile],
       [
-        LDADD="$LDADD -L$pcre_path/lib -lpcre"
-        AM_CPPFLAGS="$AM_CPPFLAGS -I$pcre_path/include"
+        LDADD="$LDADD -L$pcre2_path/lib -lpcre2"
+        AM_CPPFLAGS="$AM_CPPFLAGS -I$pcre2_path/include"
         AC_SUBST(AM_CPPFLAGS)
         AC_SUBST(LDADD)
-        AC_DEFINE([HAVE_LIBPCRE],[],[Define to 1 if you have PCRE installed])
-        AC_MSG_NOTICE([Building with PCRE regular expressions library in $pcre_path])
+        AC_DEFINE([HAVE_LIBPCRE2],[],[Define to 1 if you have PCRE2 installed])
+        AC_MSG_NOTICE([Building with PCRE2 regular expressions library in $pcre2_path])
       ],
       [
-        AS_IF([test ".$with_pcre" != ".check"],[AC_MSG_ERROR([PCRE regular expressions library not found])],[with_pcre="no"])
+        AS_IF([test ".$with_pcre2" != ".check"],[AC_MSG_ERROR([PCRE2 regular expressions library not found])],[with_pcre2="no"])
       ]
     )
     CPPFLAGS="$OLDCPPFLAGS"
@@ -79,7 +79,7 @@ AS_IF([test ".$with_pcre" != ".no"],
 )
 
 # If PCRE deactivated or not found, try POSIX instead
-AS_IF([test ".$with_pcre" = ".no"],
+AS_IF([test ".$with_pcre2" = ".no"],
   [
     AC_CHECK_FUNCS([regcomp],
       [
@@ -108,8 +108,8 @@ AC_CHECK_TYPE([struct ip_fw],
   ]
 )
 
-# Check if we even have IPFW3
-AC_CHECK_TYPE([ip_fw3_opheader],
+# Check if we even have IPFW3 (FBSD 11+)
+AC_CHECK_TYPE([ipfw_obj_header],
   [
     AC_DEFINE([HAVE_IPFW3],[],[Define to 1 if you have IPFW3])
     have_ipfw3=yes

@@ -1,15 +1,15 @@
 /*
  Copyright 2007-2015 Alexander Wittig. All rights reserved.
- 
- Redistribution and use in source and binary forms, with or without 
+
+ Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
- 
+
  1. Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  2. Redistributions in binary form must reproduce the above copyright notice,
  this list of conditions and the following disclaimer in the documentation
  and/or other materials provided with the distribution.
- 
+
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -47,7 +47,7 @@
 //#include <grp.h>
 
 #ifdef HAVE_LIBPCRE
-    #include <pcre.h>
+    #include <pcre2.h>
 #else
     #include <regex.h>
 #endif
@@ -99,7 +99,7 @@ STAILQ_HEAD( _hosts, host );
 // linked list of the regexps
 struct regexp {
 #ifdef HAVE_LIBPCRE
-    pcre* re;                   // Compiled pattern
+    pcre2_code* re;             // Compiled pattern
 #else
     regex_t re;                 // Compiled pattern
 #endif
@@ -198,11 +198,13 @@ static void version( )
 #ifdef HAVE_LIBPCRE
 #define _STRINGIFY(x) #x
 #define STRINGIFY(x) _STRINGIFY(x)
+    char ver[64];
+    pcre2_config( PCRE2_CONFIG_VERSION, ver );
     fprintf( stderr,
         "Built with PCRE regular expressions.\n"
         "\tCompiled with PCRE version:\t%i.%i %s\n"
         "\tLinked with PCRE version:\t%s\n",
-        PCRE_MAJOR, PCRE_MINOR, STRINGIFY(PCRE_DATE), pcre_version( ) );
+        PCRE2_MAJOR, PCRE2_MINOR, STRINGIFY(PCRE2_DATE), ver );
 #else
     fprintf( stderr, "Built with POSIX regular expressions.\n" );
 #endif
@@ -233,10 +235,10 @@ static void version( )
         root_dir ? root_dir : "(none)",
         loglevel,
         default_group.table, default_group.max_count, default_group.within_time,
-        default_group.reset_time, default_group.random, 
+        default_group.reset_time, default_group.random,
         (default_group.flags & BIF_BLOCKFAIL) ? "block" : "ignore",
         (default_group.flags & BIF_WARNFAIL) ? "yes" : "no",
-        (default_group.flags & BIF_CONTINUE) ? 
+        (default_group.flags & BIF_CONTINUE) ?
             ((default_group.flags & BIF_SKIP) ? "next" : "yes") : "no",
         default_group.max_hosts,
         (default_group.flags & BIF_BLOCKMAX) ? "block" : "ignore",
@@ -402,7 +404,7 @@ void signalHandler( int sig )
         default:
             // close stdin so that fgetln(...) in the main loop returns and never succeeds again
             fclose( stdin );
-            break;        
+            break;
     }
 }
 
@@ -410,7 +412,8 @@ void signalHandler( int sig )
 int addRegexp( char* exp, struct bgroup* g )
 {
 #ifdef HAVE_LIBPCRE
-    const char* error;
+    int error;
+    PCRE2_SIZE offset;
 #endif
     int i;
     struct regexp* nptr;
@@ -424,7 +427,7 @@ int addRegexp( char* exp, struct bgroup* g )
         err( EX_OSERR, "%s", error_messages[ERR_OUT_OF_MEMORY] );
 
 #ifdef HAVE_LIBPCRE
-    nptr->re = pcre_compile( exp, PCRE_CASELESS, &error, &i, NULL );
+    nptr->re = pcre2_compile( (PCRE2_SPTR)exp, PCRE2_ZERO_TERMINATED, PCRE2_CASELESS, &error, &offset, NULL );
     if( !nptr->re )
     {
         free( nptr );
@@ -432,7 +435,7 @@ int addRegexp( char* exp, struct bgroup* g )
     }
 
     // check to see if the RE has at least one match
-    if( pcre_fullinfo( nptr->re, NULL, PCRE_INFO_CAPTURECOUNT, &i ) || (i < 1) )
+    if( pcre2_pattern_info( nptr->re, PCRE2_INFO_CAPTURECOUNT, &i ) || (i < 1) )
     {
         pcre_free( nptr->re );
         free( nptr );
@@ -453,7 +456,7 @@ int addRegexp( char* exp, struct bgroup* g )
         return ERR_INVALID_REGEXP;
     }
 #endif
-    
+
     nptr->matches = 0;
     nptr->exp = strdup( exp );
 
@@ -487,7 +490,7 @@ int parseGroupData( char* line, struct bgroup** pg )
         // get key/value pair
         value = strsep( &line, "," );
         key = strsep( &value, "=" );
-        
+
         // skip white space around key
         for( ; (*key != '\0') && strchr( " \t\n\r", *key ); key++ )
             ;
@@ -736,9 +739,10 @@ int mainLoop( int argc, char *argv[] )
 //    struct passwd *pwd;
 //    struct group *grp;
 #ifdef HAVE_LIBPCRE
-    int    *ovector;
     int ovlength = 0;
-    const char *hostname;
+    pcre2_match_data *md;
+    PCRE2_UCHAR *hostname;
+    PCRE2_SIZE hostlen;
 #else
     regmatch_t *pmatch;
     int nmatch = 0;
@@ -873,7 +877,7 @@ int mainLoop( int argc, char *argv[] )
         STAILQ_FOREACH( rptr, &gptr->regexps, next )
         {
 #ifdef HAVE_LIBPCRE
-            rc = pcre_fullinfo( rptr->re, NULL, PCRE_INFO_CAPTURECOUNT, &i );
+            rc = pcre2_pattern_info( rptr->re, PCRE_INFO_CAPTURECOUNT, &i );
             if( rc < 0 )
             {
                 syslog( LOG_ERR, "Error getting number of PCRE regexp subpattern for '%s' (rc=%d).", rptr->exp, rc );
@@ -889,12 +893,11 @@ int mainLoop( int argc, char *argv[] )
         }
 
 #ifdef HAVE_LIBPCRE
-    ovlength = (ovlength+1)*3;
-    ovector = (int*) calloc( ovlength, sizeof(int) );
-    if( !ovector )
+    md = pcre2_match_data_create( ovlength, NULL );
+    if( !md )
     {
-        syslog( LOG_ERR, "Error allocating enough memory for ovector (%lud bytes).", ovlength*sizeof(int) );
-        warn( "Error allocating enough memory for ovector (%lud bytes)", ovlength*sizeof(int) );
+        syslog( LOG_ERR, "Error allocating enough memory for ovector (%u matches).", ovlength );
+        warn( "Error allocating enough memory for ovector (%u matches)", ovlength );
         return( EX_OSERR );
     }
 #else
@@ -918,22 +921,22 @@ int mainLoop( int argc, char *argv[] )
             STAILQ_FOREACH( rptr, &gptr->regexps, next )
             {
 #ifdef HAVE_LIBPCRE
-                rc = pcre_exec( rptr->re, NULL, line, length, 0, PCRE_NOTEMPTY, ovector, ovlength );
+                rc = pcre2_match( rptr->re, (PCRE2_SPTR)line, length, 0, PCRE2_NOTEMPTY, md, NULL );
 
                 if( rc <= 0 )
                 {
                     if( rc != PCRE_ERROR_NOMATCH )
                         syslog( LOG_ERR, "Error in pcre_exec for regexp '%s' with subject '%s' (rc=%d).", rptr->exp, line, rc );
                 }
-                else if( (pcre_get_named_substring( rptr->re, line, ovector, rc, "host", &hostname ) > 0) ||
-                         (pcre_get_substring( line, ovector, rc, 1, &hostname ) > 0) )
+                else if( (pcre2_substring_get_byname( md, "host", &hostname, &hostlen ) > 0) ||
+                         (pcre2_substring_get_bynumber( md, 1, &hostname, &hostlen ) > 0) )
                 {
                     // we caught a bad guy!
                     if( loglevel >= 3 )
                         syslog( LOG_DEBUG, "Regular expression '%s' matches '%s' for host '%s'.", rptr->exp, line, hostname );
                     rptr->matches++;
                     checkHost( hostname, gptr );
-                    pcre_free_substring( hostname );
+                    pcre2_substring_free( hostname );
                     // proceed according to settings
                     if( !(gptr->flags & BIF_CONTINUE) )
                         done = 1;
@@ -964,7 +967,7 @@ int mainLoop( int argc, char *argv[] )
                     // proceed according to settings
                     if( !(gptr->flags & BIF_CONTINUE) )
                         done = 1;
-                    else if( gptr->flags & BIF_SKIP ) 
+                    else if( gptr->flags & BIF_SKIP )
                         break;
                 }
                 else
@@ -980,7 +983,7 @@ int mainLoop( int argc, char *argv[] )
     rc = errno;
 
 #ifdef HAVE_LIBPCRE
-    free( ovector );
+    pcre2_match_data_free( md );
 #else
     free( pmatch );
 #endif
@@ -995,7 +998,7 @@ int mainLoop( int argc, char *argv[] )
             STAILQ_REMOVE_HEAD( &gptr->regexps, next );
             free( rptr->exp );
 #ifdef HAVE_LIBPCRE
-            pcre_free( rptr->re );
+            pcre2_code_free( rptr->re );
 #else
             regfree( &rptr->re );
 #endif
@@ -1023,17 +1026,17 @@ int main( int argc, char *argv[] )
     int rc;
 
     // open syslog
-#ifdef LOG_SECURITY  
+#ifdef LOG_SECURITY
     openlog( "banhammer", LOG_PID, LOG_SECURITY );     // FreeBSD style
 #else
     openlog( "banhammer", LOG_PID, LOG_AUTH );         // Apple style
 #endif
 
     // see if we are root
-    if( geteuid( ) != 0 )  
+    if( geteuid( ) != 0 )
     {
         syslog( LOG_ALERT, "Banhammer has to be run as root." );
-        closelog( ); 
+        closelog( );
         errx( EX_OSERR, "Banhammer has to be run as root." );
     }
 
@@ -1049,7 +1052,7 @@ int main( int argc, char *argv[] )
     // initialize PRNG
     srandomdev( );
 
-    // setup signal handlers    
+    // setup signal handlers
     signal( SIGINT, signalHandler );
     signal( SIGINFO, signalHandler );
     signal( SIGHUP, signalHandler );
