@@ -60,7 +60,7 @@ AS_IF([test ".$with_pcre2" != ".no"],
     )
     OLDLDFLAGS="$LDFLAGS"; LDFLAGS="$LDFLAGS -L$pcre2_path/lib"
     OLDCPPFLAGS="$CPPFLAGS"; CPPFLAGS="$CPPFLAGS -I$pcre2_path/include"
-    AC_CHECK_LIB([pcre2-8],[pcre2_compile],
+    AC_CHECK_LIB([pcre2-8],[pcre2_compile_8],
       [
         LDADD="$LDADD -L$pcre2_path/lib -lpcre2-8"
         AM_CPPFLAGS="$AM_CPPFLAGS -I$pcre2_path/include"
