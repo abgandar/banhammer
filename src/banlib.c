@@ -211,7 +211,7 @@ int fw_list( void (*callback)(struct sockaddr*, socklen_t, u_int32_t, u_int16_t)
     // obtain all table entries
     if( ti.count == 0 )
         return 0;
-    if( ti->type != IPFW_TABLE_ADDR )
+    if( ti.type != IPFW_TABLE_ADDR )
         return 1;
     l = sizeof(ipfw_obj_header) + sizeof(ipfw_xtable_info) + ti.size;
     if( (oh = (ipfw_obj_header*) calloc( 1, l )) == NULL )
@@ -224,7 +224,7 @@ int fw_list( void (*callback)(struct sockaddr*, socklen_t, u_int32_t, u_int16_t)
 	oh->ntlv.set = 0;
     snprintf( oh->ntlv.name, sizeof(oh->ntlv.name), "%hu", table );
     oh->idx = 1;
-    if( getsockopt( ipfw_socket, IPPROTO_IP, IP_FW3, tab, &l ) < 0)
+    if( getsockopt( ipfw_socket, IPPROTO_IP, IP_FW3, oh, &l ) < 0)
     {
         free( oh );
         return 1;
@@ -236,7 +236,7 @@ int fw_list( void (*callback)(struct sockaddr*, socklen_t, u_int32_t, u_int16_t)
     sa6.sin6_family = AF_INET6;
 #endif
     tent = (ipfw_obj_tentry *)(((ipfw_xtable_info *)(oh + 1)) + 1);
-    for( l = 0; l < ti->count; l++ )
+    for( l = 0; l < ti.count; l++ )
     {
         addr6 = &tent->k.addr6;
         // IPFW3 returns IPv4 addresses as deprecated IPv6 compatible addresses
