@@ -47,6 +47,7 @@
 //#include <grp.h>
 
 #ifdef HAVE_LIBPCRE2
+    #define PCRE2_CODE_UNIT_WIDTH 8
     #include <pcre2.h>
 #else
     #include <regex.h>
