@@ -123,11 +123,11 @@ static int fw_table_cmd( int opcode, struct sockaddr* addr, socklen_t addrlen, u
 
     ctlv = (ipfw_obj_ctlv*)(oh + 1);
     ctlv->count = 1;
-    ctlv->flags = (opcode == BANLIB_ADD) ? IPFW_TF_UPDATE : 0;
     ctlv->head.length = sizeof(*ctlv) + sizeof(*tent);
 
     tent = (ipfw_obj_tentry*)(ctlv + 1);
     tent->head.length = sizeof(ipfw_obj_tentry);
+    ctlv->head.flags = (opcode == BANLIB_ADD) ? IPFW_TF_UPDATE : 0;
     tent->idx = oh->idx;
     tent->v.value.tag = (opcode == BANLIB_ADD) ? value : 0;
 
