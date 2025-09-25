@@ -1,15 +1,15 @@
 /*
  Copyright 2007-2015 Alexander Wittig. All rights reserved.
- 
- Redistribution and use in source and binary forms, with or without 
+
+ Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
- 
+
  1. Redistributions of source code must retain the above copyright notice, this
  list of conditions and the following disclaimer.
  2. Redistributions in binary form must reproduce the above copyright notice,
  this list of conditions and the following disclaimer in the documentation
  and/or other materials provided with the distribution.
- 
+
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -150,7 +150,7 @@ static int show_stats( )
 {
     int rc = 0;
     struct table *ptr;
-    
+
     STAILQ_FOREACH( ptr, &tables, next )
     {
         printf( "ENTRIES IN IPFW TABLE %i\n"
@@ -159,7 +159,7 @@ static int show_stats( )
         rc |= fw_list( print_stat, ptr->table );
         printf( "\n" );
     }
-    
+
     if( rc )
         return EX_SOFTWARE;
     else
@@ -181,7 +181,7 @@ static void check_entry( struct sockaddr *addr, socklen_t addrlen, u_int32_t val
         if( fw_del( addr, addrlen, table ) )
         {
             if( loglevel >= 1 )
-                syslog( LOG_WARNING, "Error removing %s from IPFW table %i", ip, table );
+                syslog( LOG_WARNING, "Error removing %s from IPFW table %i (%i)", ip, table, errno );
         }
         else
             if( loglevel >= 2 )
@@ -291,7 +291,7 @@ static void load_state( )
 
         ip = strsep( &p, " \t" );
         if( !ip )
-        { 
+        {
             if( loglevel >= 2 )
                 syslog( LOG_INFO, "Skipping invalid state file entry (%s:%d)", state_file, i );
             continue;
@@ -488,14 +488,14 @@ int main( int argc, char *argv[] )
     // check if we were given enough tables
     if( STAILQ_EMPTY( &tables ) )
         errx( EX_USAGE, "You must specify at least one IPFW table to operate on." );
-    
+
     // initialize firewall
     rc = fw_init( );
     if( rc )
         errx( EX_CONFIG, "Error initializing IPFW (rc=%d).", rc );
 
     // open syslog
-    openlog( "banhammerd", LOG_PID, LOG_SECURITY );    
+    openlog( "banhammerd", LOG_PID, LOG_SECURITY );
 
     // run the requested mode
     switch( mode )
@@ -511,11 +511,11 @@ int main( int argc, char *argv[] )
             rc = show_stats( );
             break;
     }
-    
+
     // clean up
     fw_close( );
     closelog( );
-    
+
     while( !STAILQ_EMPTY( &tables ) )
     {
         nptr = STAILQ_FIRST( &tables );
