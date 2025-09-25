@@ -936,7 +936,7 @@ int mainLoop( int argc, char *argv[] )
                     if( loglevel >= 3 )
                         syslog( LOG_DEBUG, "Regular expression '%s' matches '%s' for host '%s'.", rptr->exp, line, hostname );
                     rptr->matches++;
-                    checkHost( (unsigned char*)hostname, gptr );
+                    checkHost( (char*)hostname, gptr );
                     pcre2_substring_free( hostname );
                     // proceed according to settings
                     if( !(gptr->flags & BIF_CONTINUE) )
