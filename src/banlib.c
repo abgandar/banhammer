@@ -246,7 +246,7 @@ int fw_list( void (*callback)(struct sockaddr*, socklen_t, u_int32_t, u_int16_t)
 #ifdef WITH_IPV6
         else
         {
-            sa4.sin6_addr = tent->k.addr6;
+            sa6.sin6_addr = tent->k.addr6;
             (*callback)( (struct sockaddr*)&sa6, sizeof(sa6), tent->v.value.tag, table );
         }
 #endif
