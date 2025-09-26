@@ -952,7 +952,7 @@ int mainLoop( int argc, char *argv[] )
                         syslog( LOG_DEBUG, "Regular expression '%s' matches '%s' for host '%s'.", rptr->exp, line, hostname );
                     rptr->matches++;
                     checkHost( hostname, gptr );
-                    pcre2_substring_free( (PCRE2_UCHAR**)hostname );
+                    pcre2_substring_free( (PCRE2_UCHAR*)hostname );
                     // proceed according to settings
                     if( !(gptr->flags & BIF_CONTINUE) )
                         done = 1;
