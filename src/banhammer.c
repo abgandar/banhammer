@@ -43,8 +43,10 @@
 #include <sys/socket.h>
 #include <sys/queue.h>
 #include <getopt.h>
-//#include <pwd.h>
-//#include <grp.h>
+#ifdef WITH_GROUPS
+#include <pwd.h>
+#include <grp.h>
+#endif
 
 #ifdef HAVE_LIBPCRE2
     #define PCRE2_CODE_UNIT_WIDTH 8
@@ -133,10 +135,12 @@ STAILQ_HEAD( _groups, bgroup ) groups;
 // global configuration options and their default
 int loglevel = 2;
 static char* root_dir = NULL;
-//static char* uid_name = NULL;
-//static char* gid_name = NULL;
-//static uid_t uid = 0;
-//static gid_t gid = 0;
+#ifdef WITH_GROUPS
+static char* uid_name = NULL;
+static char* gid_name = NULL;
+static uid_t uid = 0;
+static gid_t gid = 0;
+#endif
 static const char* default_config_file = SYSCONFDIR "/banhammer.conf";
 static const struct bgroup default_group = { 4, 60, 600, 1, 0, 30, 0x08|0x10|0x20, 0, 0, { 0 }, { 0 } };
 // 4 hits within 60 seconds, block for 10 min in table 1, no watchlist limit, randomize time +-30%, warn if blocking failed and warn and block if maxhost exceeded, 0 references, 0 hosts on watch, and two empty lists
@@ -145,8 +149,10 @@ static const struct bgroup default_group = { 4, 60, 600, 1, 0, 30, 0x08|0x10|0x2
 static const struct option longopts[] = {
      { "directory", required_argument, NULL, 'd' },
      { "file", required_argument, NULL, 'f' },
-//     { "group", required_argument, NULL, 'g' },
-//     { "user", required_argument, NULL, 'u' },
+#ifdef WITH_GROUPS
+     { "group", required_argument, NULL, 'g' },
+     { "user", required_argument, NULL, 'u' },
+#endif
      { "check", no_argument, NULL, 'c' },
      { "help", no_argument, NULL, 'h' },
      { "quiet", no_argument, NULL, 'q' },
@@ -186,6 +192,10 @@ static void usage( )
           " --quiet, -q\n\t\tdecrease logging level (repeat for less)\n"
           " --directory, -d\n"
           "\t\tchroot to this directory (default: none)\n"
+#ifdef WITH_GROUPS
+          " --user, -u\n\t\tdrop priviliges to run as this user\n"
+          " --group, -g\n\t\tdrop priviliges to run as this group\n"
+#endif
           " --file, -f\n\t\tconfiguration file with pattern to match against\n"
           "\t\t(default if none specified: %s)\n"
           "\nFor more details see banhammer(1).\n",
@@ -213,6 +223,9 @@ static void version( )
     fprintf( stderr, "Built with IPv6 support via IPFW 3.\n" );
 #else
     fprintf( stderr, "Built with IPv4 support only via IPFW 2.\n" );
+#endif
+#ifdef WITH_GROUPS
+    fprintf( stderr, "Built with support to drop priviliges.\n" );
 #endif
     fprintf( stderr,
         "\n"
@@ -737,17 +750,17 @@ int mainLoop( int argc, char *argv[] )
     char *line = NULL, ch;
     int rc, i, done = 0;
     size_t length;
-//    struct passwd *pwd;
-//    struct group *grp;
+#ifdef WITH_GROUPS
+    struct passwd *pwd;
+    struct group *grp;
+#endif
+    int nmatch = 0;
+    char *hostname;
 #ifdef HAVE_LIBPCRE2
-    int ovlength = 0;
     pcre2_match_data *md;
-    PCRE2_UCHAR *hostname;
     PCRE2_SIZE hostlen;
 #else
     regmatch_t *pmatch;
-    int nmatch = 0;
-    char *hostname;
 #endif
     struct host *hptr;
     struct regexp *rptr;
@@ -777,7 +790,8 @@ int mainLoop( int argc, char *argv[] )
                 done = 1;
                 break;
 
-/*            case 'u':
+#ifdef WITH_GROUPS
+            case 'u':
                 uid_name = optarg;
                 pwd = getpwnam( uid_name );
                 if( !pwd )
@@ -800,7 +814,7 @@ int mainLoop( int argc, char *argv[] )
                 }
                 gid = grp->gr_gid;
                 break;
- */
+ #endif
 
             case 'v':
                 version( );
@@ -854,7 +868,8 @@ int mainLoop( int argc, char *argv[] )
         if( chroot( root_dir ) )
             warn( "Changing root to %s failed", root_dir );
 
-/*    // drop root group
+#ifdef WITH_GROUPS
+    // drop root group
     if( gid )
     {
         rc = setgroups( 1, &gid );
@@ -868,7 +883,7 @@ int mainLoop( int argc, char *argv[] )
         if( setuid( uid ) )
             warn( "Changing user to %s (%d) failed", uid_name, uid );
     }
- */
+ #endif
 
     // Update the list of local network interfaces at this point
     updateLocalInterfaces( );
@@ -885,8 +900,8 @@ int mainLoop( int argc, char *argv[] )
                 warnx( "Error getting number of PCRE2 regexp subpattern for '%s' (rc=%d)", rptr->exp, rc );
                 return( EX_SOFTWARE );
             }
-            if( i > ovlength )
-                ovlength = i;
+            if( i > nmatch )
+                nmatch = i;
 #else
             if( rptr->re.re_nsub > nmatch )
                 nmatch = rptr->re.re_nsub;
@@ -894,11 +909,11 @@ int mainLoop( int argc, char *argv[] )
         }
 
 #ifdef HAVE_LIBPCRE2
-    md = pcre2_match_data_create( ovlength, NULL );
+    md = pcre2_match_data_create( nmatch, NULL );
     if( !md )
     {
-        syslog( LOG_ERR, "Error allocating enough memory for ovector (%u matches).", ovlength );
-        warn( "Error allocating enough memory for ovector (%u matches)", ovlength );
+        syslog( LOG_ERR, "Error allocating enough memory for match_data (%u matches).", ovlength );
+        warn( "Error allocating enough memory for match_data (%u matches)", ovlength );
         return( EX_OSERR );
     }
 #else
@@ -929,14 +944,14 @@ int mainLoop( int argc, char *argv[] )
                     if( rc != PCRE2_ERROR_NOMATCH )
                         syslog( LOG_ERR, "Error in pcre2_match for regexp '%s' with subject '%s' (rc=%d).", rptr->exp, line, rc );
                 }
-                else if( (pcre2_substring_get_byname( md, (unsigned char*)"host", &hostname, &hostlen ) == 0) ||
-                         (pcre2_substring_get_bynumber( md, 1, &hostname, &hostlen ) == 0) )
+                else if( (pcre2_substring_get_byname( md, (PCRE2_SPTR)"host", (PCRE2_SPTR*)&hostname, &hostlen ) == 0) ||
+                         (pcre2_substring_get_bynumber( md, 1, (PCRE2_SPTR*)&hostname, &hostlen ) == 0) )
                 {
                     // we caught a bad guy!
                     if( loglevel >= 3 )
                         syslog( LOG_DEBUG, "Regular expression '%s' matches '%s' for host '%s'.", rptr->exp, line, hostname );
                     rptr->matches++;
-                    checkHost( (char*)hostname, gptr );
+                    checkHost( hostname, gptr );
                     pcre2_substring_free( hostname );
                     // proceed according to settings
                     if( !(gptr->flags & BIF_CONTINUE) )

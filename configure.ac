@@ -42,6 +42,13 @@ AM_FUNC_GETLINE
 # Check for libutil
 AC_CHECK_LIB([util], [pidfile_open], [LIBS="$LIBS -lutil"], [AC_MSG_ERROR([Did not find FreeBSD libutil])] )
 
+# Enable user and group switching
+AC_ARG_ENABLE([users],
+  [AS_HELP_STRING([--enable-users],
+    [enable support for dropping priviliges by switching user/group])],
+  [],
+  [AC_DEFINE([WITH_GROUPS], [1], [Define if you want user/group switching support])])
+
 # Try to find PCRE2 unless deactivated
 AC_ARG_WITH([pcre2],
             [AS_HELP_STRING([--with-pcre2=[[prefix]]],[Use PCRE2 regex library @<:@default=check@:>@])],
