@@ -43,7 +43,7 @@
 #include <sys/socket.h>
 #include <sys/queue.h>
 #include <getopt.h>
-#ifdef WITH_GROUPS
+#ifdef WITH_USERS
 #include <pwd.h>
 #include <grp.h>
 #endif
@@ -135,7 +135,7 @@ STAILQ_HEAD( _groups, bgroup ) groups;
 // global configuration options and their default
 int loglevel = 2;
 static char* root_dir = NULL;
-#ifdef WITH_GROUPS
+#ifdef WITH_USERS
 static char* uid_name = NULL;
 static char* gid_name = NULL;
 static uid_t uid = 0;
@@ -149,7 +149,7 @@ static const struct bgroup default_group = { 4, 60, 600, 1, 0, 30, 0x08|0x10|0x2
 static const struct option longopts[] = {
      { "directory", required_argument, NULL, 'd' },
      { "file", required_argument, NULL, 'f' },
-#ifdef WITH_GROUPS
+#ifdef WITH_USERS
      { "group", required_argument, NULL, 'g' },
      { "user", required_argument, NULL, 'u' },
 #endif
@@ -192,7 +192,7 @@ static void usage( )
           " --quiet, -q\n\t\tdecrease logging level (repeat for less)\n"
           " --directory, -d\n"
           "\t\tchroot to this directory (default: none)\n"
-#ifdef WITH_GROUPS
+#ifdef WITH_USERS
           " --user, -u\n\t\tdrop priviliges to run as this user\n"
           " --group, -g\n\t\tdrop priviliges to run as this group\n"
 #endif
@@ -224,7 +224,7 @@ static void version( )
 #else
     fprintf( stderr, "Built with IPv4 support only via IPFW 2.\n" );
 #endif
-#ifdef WITH_GROUPS
+#ifdef WITH_USERS
     fprintf( stderr, "Built with support to drop priviliges.\n" );
 #endif
     fprintf( stderr,
@@ -750,7 +750,7 @@ int mainLoop( int argc, char *argv[] )
     char *line = NULL, ch;
     int rc, i, done = 0;
     size_t length;
-#ifdef WITH_GROUPS
+#ifdef WITH_USERS
     struct passwd *pwd;
     struct group *grp;
 #endif
@@ -790,7 +790,7 @@ int mainLoop( int argc, char *argv[] )
                 done = 1;
                 break;
 
-#ifdef WITH_GROUPS
+#ifdef WITH_USERS
             case 'u':
                 uid_name = optarg;
                 pwd = getpwnam( uid_name );
@@ -868,7 +868,7 @@ int mainLoop( int argc, char *argv[] )
         if( chroot( root_dir ) )
             warn( "Changing root to %s failed", root_dir );
 
-#ifdef WITH_GROUPS
+#ifdef WITH_USERS
     // drop root group
     if( gid )
     {

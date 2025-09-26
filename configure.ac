@@ -35,7 +35,11 @@ AC_ARG_ENABLE([users],
   [AS_HELP_STRING([--enable-users],
     [enable support for dropping priviliges by switching user/group])],
   [],
-  [AC_DEFINE([WITH_GROUPS], [1], [Define if you want user/group switching support])])
+  [enable_users=no]
+)
+AS_IF([test "x$enable_users" != xno],
+  [AC_DEFINE([WITH_USERS], [1], [Define if you want user/group switching support])],
+  [])
 
 # Try to find PCRE2 unless deactivated
 AC_ARG_WITH([pcre2],
