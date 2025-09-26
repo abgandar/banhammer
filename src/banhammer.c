@@ -184,7 +184,11 @@ static int regex_get_substring( const char* line, regmatch_t* pmatch, char** hos
 static void usage( )
 {
     fprintf( stderr,
+#ifdef WITH_USERS
+          "Usage: banhammer -h | -v | [-c] [-V] [-q] [-d dir] [-u user] [-g group] -f config_file [-f ...]\n"
+#else
           "Usage: banhammer -h | -v | [-c] [-V] [-q] [-d dir] -f config_file [-f ...]\n"
+#endif
           " --help, -h\n\t\tprint this message and exit\n"
           " --version, -v\n\t\tprint version and build information\n"
           " --check, -c\n\t\tcheck configuration for errors and exit\n"
