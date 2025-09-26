@@ -912,8 +912,8 @@ int mainLoop( int argc, char *argv[] )
     md = pcre2_match_data_create( nmatch, NULL );
     if( !md )
     {
-        syslog( LOG_ERR, "Error allocating enough memory for match_data (%u matches).", ovlength );
-        warn( "Error allocating enough memory for match_data (%u matches)", ovlength );
+        syslog( LOG_ERR, "Error allocating enough memory for match_data (%u matches).", nmatch );
+        warn( "Error allocating enough memory for match_data (%u matches)", nmatch );
         return( EX_OSERR );
     }
 #else
@@ -944,15 +944,15 @@ int mainLoop( int argc, char *argv[] )
                     if( rc != PCRE2_ERROR_NOMATCH )
                         syslog( LOG_ERR, "Error in pcre2_match for regexp '%s' with subject '%s' (rc=%d).", rptr->exp, line, rc );
                 }
-                else if( (pcre2_substring_get_byname( md, (PCRE2_SPTR)"host", (PCRE2_SPTR*)&hostname, &hostlen ) == 0) ||
-                         (pcre2_substring_get_bynumber( md, 1, (PCRE2_SPTR*)&hostname, &hostlen ) == 0) )
+                else if( (pcre2_substring_get_byname( md, (PCRE2_SPTR)"host", (PCRE2_UCHAR**)&hostname, &hostlen ) == 0) ||
+                         (pcre2_substring_get_bynumber( md, 1, (PCRE2_UCHAR**)&hostname, &hostlen ) == 0) )
                 {
                     // we caught a bad guy!
                     if( loglevel >= 3 )
                         syslog( LOG_DEBUG, "Regular expression '%s' matches '%s' for host '%s'.", rptr->exp, line, hostname );
                     rptr->matches++;
                     checkHost( hostname, gptr );
-                    pcre2_substring_free( hostname );
+                    pcre2_substring_free( (PCRE2_UCHAR**)hostname );
                     // proceed according to settings
                     if( !(gptr->flags & BIF_CONTINUE) )
                         done = 1;
