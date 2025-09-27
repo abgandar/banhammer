@@ -912,6 +912,7 @@ int mainLoop( int argc, char *argv[] )
 #endif
         }
 
+    nmatch++;
 #ifdef HAVE_LIBPCRE2
     md = pcre2_match_data_create( nmatch, NULL );
     if( !md )
@@ -921,7 +922,6 @@ int mainLoop( int argc, char *argv[] )
         return( EX_OSERR );
     }
 #else
-    nmatch++;
     pmatch = (regmatch_t*) calloc( nmatch, sizeof(regmatch_t) );
     if( !pmatch )
     {
