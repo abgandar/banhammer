@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.72])
-AC_INIT([banhammer],[0.2],[alexander@wittig.name])
+AC_INIT([banhammer],[0.3],[alexander@wittig.name])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([src/banlib.h])
 AC_CONFIG_HEADERS([src/config.h])

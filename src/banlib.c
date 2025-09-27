@@ -1,5 +1,5 @@
 /*
- Copyright 2013-2015 Alexander Wittig. All rights reserved.
+ Copyright 2013-2025 Alexander Wittig. All rights reserved.
 
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
@@ -296,7 +296,7 @@ static int fw_table_cmd( int opcode, struct sockaddr* addr, socklen_t addrlen, u
 int fw_list( void (*callback)(struct sockaddr*, socklen_t, u_int32_t, u_int16_t), u_int16_t table )
 {
     ipfw_table *tab;
-    struct sockaddr_in sa4 = {0};
+    struct sockaddr_in sa4 = { 0 };
     int i, size;
 
     if( ipfw_socket == -1 )
@@ -414,8 +414,8 @@ int isLocal( struct sockaddr *sa )
 int addHostLong( const char* host, uint32_t value, uint32_t table, time_t rt, int bl )
 {
     struct addrinfo *res = NULL, *ai;
-    struct addrinfo hints = {0};
-    char ip[NI_MAXHOST] = {0};
+    struct addrinfo hints = { 0 };
+    char ip[NI_MAXHOST] = { 0 };
     int rc, err = 0;
 
     hints.ai_flags = AI_ADDRCONFIG;
