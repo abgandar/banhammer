@@ -186,25 +186,24 @@ static int fw_table_cmd( int opcode, struct sockaddr* addr, socklen_t addrlen, u
 // always reflects the unaltered state of the table for all callbacks.
 int fw_list( void (*callback)(struct sockaddr*, socklen_t, u_int32_t, u_int16_t), u_int16_t table )
 {
+    const int size = 10*sizeof(ipfw_obj_tentry);    // initial guess
     ipfw_obj_header *oh;
-    ipfw_xtable_info ti;
+    ipfw_xtable_info *ti;
 	ipfw_obj_tentry *tent;
-    struct in6_addr *addr6;
     socklen_t l;
-    int rc;
-    struct sockaddr_in sa4 = {0};
+    struct sockaddr_in sa4 = { 0 };
 #ifdef WITH_IPV6
-    struct sockaddr_in6 sa6 = {0};
+    struct sockaddr_in6 sa6 = { 0 };
 #endif
 
     if( ipfw_socket == -1 )
         return -1;
 
     // obtain table info
-    l = sizeof(ipfw_obj_header) + sizeof(ipfw_xtable_info);
-    if( (oh = (ipfw_obj_header*) calloc( 1, l )) == NULL )
+    l = sizeof(ipfw_obj_header) + sizeof(ipfw_xtable_info) + size;
+    if( (oh = (ipfw_obj_header*)calloc( 1, l )) == NULL )
         return 1;
-    oh->opheader.opcode = IP_FW_TABLE_XINFO;
+    oh->opheader.opcode = IP_FW_TABLE_XLIST;        //IP_FW_TABLE_XINFO;
     oh->opheader.version = 1;
     oh->ntlv.head.type = IPFW_TLV_TBL_NAME;
     oh->ntlv.head.length = sizeof(ipfw_obj_ntlv);
@@ -212,46 +211,44 @@ int fw_list( void (*callback)(struct sockaddr*, socklen_t, u_int32_t, u_int16_t)
 	oh->ntlv.set = 0;
     snprintf( oh->ntlv.name, sizeof(oh->ntlv.name), "%hu", table );
     oh->idx = 1;
-    rc = getsockopt( ipfw_socket, IPPROTO_IP, IP_FW3, &(oh->opheader), &l );
-    if( rc < 0 )
+    if( getsockopt( ipfw_socket, IPPROTO_IP, IP_FW3, &(oh->opheader), &l ) < 0 )
     {
         free( oh );
         return 1;
     }
-    ti = *((ipfw_xtable_info*)(oh + 1));
-    free( oh );
-    if( !(ti.vmask & IPFW_VTYPE_MARK) )     // also accepts VTYPE_LEGACY
+    ti = (ipfw_xtable_info*)(oh + 1);
+    if( ti->type != IPFW_TABLE_ADDR || (ti->vmask & IPFW_VTYPE_MARK) == 0 )     // also accepts VTYPE_LEGACY
+    {
+        free( oh );
         return 1;
-
-    // obtain all table entries
-    if( ti.count == 0 )
+    }
+    if( ti->count == 0 )
+    {
+        free( oh );
         return 0;
-    if( ti.type != IPFW_TABLE_ADDR )
-        return 1;
-    l = sizeof(ipfw_obj_header) + sizeof(ipfw_xtable_info) + ti.size;
-    if( (oh = (ipfw_obj_header*) calloc( 1, l )) == NULL )
-        return 1;
-    oh->opheader.opcode = IP_FW_TABLE_XLIST;
-    oh->opheader.version = 1;
-    oh->ntlv.head.type = IPFW_TLV_TBL_NAME;
-    oh->ntlv.head.length = sizeof(ipfw_obj_ntlv);
-    oh->ntlv.idx = 1;
-	oh->ntlv.set = 0;
-    snprintf( oh->ntlv.name, sizeof(oh->ntlv.name), "%hu", table );
-    oh->idx = 1;
-    if( getsockopt( ipfw_socket, IPPROTO_IP, IP_FW3, oh, &l ) < 0)
-    {
-        free( oh );
-        return 1;
     }
 
-    // call the callback for each address
+    // obtain remaining table entries (if any)
+    if( ti->size > size )
+    {
+        l = sizeof(ipfw_obj_header) + sizeof(ipfw_xtable_info) + ti->size;
+        if( (oh = (ipfw_obj_header*)realloc( oh, l )) == NULL )
+            return 1;
+        if( getsockopt( ipfw_socket, IPPROTO_IP, IP_FW3, oh, &l ) < 0 )
+        {
+            free( oh );
+            return 1;
+        }
+    }
+
+    // call the callback for each address in table (ti may have changed in realloc)
+    ti = (ipfw_xtable_info*)(oh + 1);
+    tent = (ipfw_obj_tentry*)(ti + 1);
     sa4.sin_family = AF_INET;
 #ifdef WITH_IPV6
     sa6.sin6_family = AF_INET6;
 #endif
-    tent = (ipfw_obj_tentry *)(((ipfw_xtable_info *)(oh + 1)) + 1);
-    for( l = 0; l < ti.count; l++ )
+    for( l = 0; l < ti->count; l++ )
     {
         if( tent->subtype == AF_INET )
         {
@@ -259,13 +256,13 @@ int fw_list( void (*callback)(struct sockaddr*, socklen_t, u_int32_t, u_int16_t)
             (*callback)( (struct sockaddr*)&sa4, sizeof(sa4), tent->v.value.mark, table );
         }
 #ifdef WITH_IPV6
-        else
+        else if( tent->subtype == AF_INET6 )
         {
             sa6.sin6_addr = tent->k.addr6;
             (*callback)( (struct sockaddr*)&sa6, sizeof(sa6), tent->v.value.mark, table );
         }
 #endif
-        tent = (ipfw_obj_tentry *)((caddr_t)tent + tent->head.length);
+        tent = (ipfw_obj_tentry*)((caddr_t)tent + tent->head.length);
     }
 
     free( oh );
