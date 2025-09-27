@@ -94,7 +94,6 @@ int fw_del( struct sockaddr* addr, socklen_t addrlen, u_int16_t table )
     return rc == 0 ? 0 : 1;
 }
 
-#ifdef HAVE_IPFW3
 // internal helper to execute an IPFW table command.
 // Opcode is BANLIB_ADD or BANLIB_DEL
 static int fw_table_cmd( int opcode, struct sockaddr* addr, socklen_t addrlen, u_int32_t value, u_int16_t table )
@@ -265,71 +264,6 @@ int fw_list( void (*callback)(struct sockaddr*, socklen_t, u_int32_t, u_int16_t)
     free( oh );
     return 0;
 }
-#else // !HAVE_IPFW3
-// internal helper to execute an IPFW table command.
-// Opcode is BANLIB_ADD or BANLIB_DEL
-static int fw_table_cmd( int opcode, struct sockaddr* addr, socklen_t addrlen, u_int32_t value, u_int16_t table )
-{
-    ipfw_table_entry ent;
-    struct sockaddr_in *sa = (struct sockaddr_in*)addr;
-
-    if( ipfw_socket == -1 )
-        return -1;
-
-    if( (addrlen < sizeof(struct sockaddr_in)) || (sa->sin_family != AF_INET) )
-        return 1;
-
-    // set up the table entry
-    ent.tbl = table;
-    ent.addr = sa->sin_addr.s_addr;
-    ent.masklen = 32;
-    ent.value = value;
-
-    // execute command
-    return setsockopt( ipfw_socket, IPPROTO_IP, opcode == BANLIB_ADD ? IP_FW_TABLE_ADD : IP_FW_TABLE_DEL, &ent, sizeof(ent) );
-}
-
-// get all IP addresses and associated values in given table and call
-// a callback function with each of them.
-// Note: The callback may alter the state of the table, you are expected
-// to reflect the state of the table when this function is first called.
-int fw_list( void (*callback)(struct sockaddr*, socklen_t, u_int32_t, u_int16_t), u_int16_t table )
-{
-    ipfw_table *tab;
-    struct sockaddr_in sa4 = { 0 };
-    int i, size;
-
-    if( ipfw_socket == -1 )
-        return -1;
-
-    i = table;
-    size = sizeof(i);
-    if( getsockopt( ipfw_socket, IPPROTO_IP, IP_FW_TABLE_GETSIZE, &i, &size ) < 0 )
-        return 1;
-
-    size = sizeof(ipfw_table) + i * sizeof(ipfw_table_entry);
-    if( (tab = (ipfw_table*) malloc( size )) == NULL )
-        return 1;
-
-    tab->tbl = table;
-    if( getsockopt( ipfw_socket, IPPROTO_IP, IP_FW_TABLE_LIST, tab, &size ) < 0)
-    {
-        free( tab );
-        return 1;
-    }
-
-    sa4.sin_family = AF_INET;
-    for( i = 0; i < tab->cnt; i++ )
-    {
-        sa4.sin_addr.s_addr = tab->ent[i].addr;
-        (*callback)( (struct sockaddr*)&sa4, sizeof(sa4), tab->ent[i].value, table );
-    }
-
-    free( tab );
-    return 0;
-}
-#endif // HAVE_IPFW3
-
 
 /* Higher level utility routines */
 

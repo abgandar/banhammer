@@ -4,18 +4,13 @@ Development:
 
 Testing:
   * check WITHOUT_IPV6 to really be completely IPv6 free in ipfw3.c (i.e. compiles on IPv6 free systems)
-  * check if it compiles and runs on FreeBSD 8 (without IPFW3)
 
 Release Engineering:
 - Website: update README-examples and reactivate
 - Submit FreeBSD port
-- Release after checking with original author
-
 
 Long term stuff:
 - banhammer: separate different regex codes into banlib
 - banlib:
-  * remove ipfw2 code once FreeBSD 8 is EOL
   * ipfw_add should really merge existing entry's value and new value, and
-    update to the largest (or 0). Requires full table list to obtain existing
-    entry's value due to lacking interface to query value.
+    update to the largest (or 0).

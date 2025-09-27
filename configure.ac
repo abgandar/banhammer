@@ -91,29 +91,15 @@ AS_IF([test ".$with_pcre2" = ".no"],
   ]
 )
 
-# Check if we have at least IPFW2
-AC_CHECK_TYPE([struct ip_fw],
-  [
-    AC_DEFINE([HAVE_IPFW2],[],[Define to 1 if you have IPFW2])
-  ],
-  [
-    AC_MSG_ERROR([At least IPFW2 is required to build.])
-  ],
-  [
-#include <stddef.h>
-#include <net/if.h>
-#include <netinet/in.h>
-#include <netinet/ip_fw.h>
-  ]
-)
-
-# Check if we even have IPFW3 (FBSD 11+)
+# Check if we have IPFW3 API version 1
 AC_CHECK_TYPE([ipfw_obj_header],
   [
     AC_DEFINE([HAVE_IPFW3],[],[Define to 1 if you have IPFW3])
     have_ipfw3=yes
   ],
-  [],
+  [
+    AC_MSG_ERROR([IPFW3 with version 1 API (FreeBSD 11+) not found.])
+  ],
   [
 #include <stddef.h>
 #include <net/if.h>
