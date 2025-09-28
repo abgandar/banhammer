@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.72])
 AC_INIT([banhammer],[0.3],[alexander@wittig.name])
-AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_MACRO_DIRS([m4])
 AC_CONFIG_SRCDIR([src/banlib.h])
 AC_CONFIG_HEADERS([src/config.h])
 AM_INIT_AUTOMAKE
@@ -65,7 +65,7 @@ AS_IF([test ".$with_pcre2" != ".no"],
         AM_CPPFLAGS="$AM_CPPFLAGS -I$pcre2_path/include"
         AC_SUBST(AM_CPPFLAGS)
         AC_SUBST(LDADD)
-        AC_DEFINE([HAVE_LIBPCRE2],[],[Define to 1 if you have PCRE2 installed])
+        AC_DEFINE([HAVE_LIBPCRE2],[1],[Define to 1 if you have PCRE2 installed])
         AC_MSG_NOTICE([Building with PCRE2 regular expressions library in $pcre2_path])
       ],
       [
@@ -94,7 +94,7 @@ AS_IF([test ".$with_pcre2" = ".no"],
 # Check if we have modern IPFW3 API version 1 (FreeBSD 11+)
 AC_CHECK_TYPE([ipfw_obj_header],
   [
-    AC_DEFINE([HAVE_IPFW3],[],[Define to 1 if you have IPFW3])
+    AC_DEFINE([HAVE_IPFW3],[1],[Define to 1 if you have IPFW3])
     have_ipfw3=yes
   ],
   [
@@ -111,7 +111,7 @@ AC_CHECK_TYPE([ipfw_obj_header],
 # Check if we have IPFW_VTYPE_MARK table value type (FreeBSD 14+)
 AC_CHECK_MEMBER([struct _ipfw_table_value.mark],
   [
-    AC_DEFINE([HAVE_IPFW_VTYPE_MARK],[],[Define to 1 if you have IPFW_VTYPE_MARK])
+    AC_DEFINE([HAVE_IPFW_VTYPE_MARK],[1],[Define to 1 if you have IPFW_VTYPE_MARK])
     have_ipfw_vtype_mark=yes
   ],
   [],
@@ -143,7 +143,7 @@ AC_CACHE_VAL(ac_cv_ipv6,
       }]])],[ac_cv_ipv6=yes],[ac_cv_ipv6=no],[ac_cv_ipv6=no]))
 AC_MSG_RESULT($ac_cv_ipv6)
 if test $ac_cv_ipv6 = yes ; then
-      AC_DEFINE(WITH_IPV6,,"check if system supports IPV6")
+      AC_DEFINE(WITH_IPV6,1,"Define to 1 if system supports IPV6")
 fi
 
 AC_CONFIG_FILES([Makefile])

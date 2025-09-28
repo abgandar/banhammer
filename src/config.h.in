@@ -13,11 +13,11 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
-/* Define to 1 if you have IPFW2 */
-#undef HAVE_IPFW2
-
 /* Define to 1 if you have IPFW3 */
 #undef HAVE_IPFW3
+
+/* Define to 1 if you have IPFW_VTYPE_MARK */
+#undef HAVE_IPFW_VTYPE_MARK
 
 /* Define to 1 if you have PCRE2 installed */
 #undef HAVE_LIBPCRE2
@@ -222,7 +222,7 @@
 /* Version number of package */
 #undef VERSION
 
-/* "check if system supports IPV6" */
+/* "Define to 1 if system supports IPV6" */
 #undef WITH_IPV6
 
 /* Define if you want user/group switching support */

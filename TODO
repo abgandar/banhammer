@@ -1,7 +1,6 @@
 Development:
-- valtype mark is only FBSD14, use tag for 11-13
+- capsicum support for better security (?)
 - banhammer: implement IP exclusion (exclude=IP option in config block)
-- capsicum support for better security
 
 Release Engineering:
 - Website: update README-examples and reactivate
