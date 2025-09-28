@@ -1,9 +1,7 @@
 Development:
-- banhammer:  implement IP exclusion (exclude=IP option in config block)
+- valtype mark is only FBSD14, use tag for 11-13
+- banhammer: implement IP exclusion (exclude=IP option in config block)
 - capsicum support for better security
-
-Testing:
-  * check WITHOUT_IPV6 to really be completely IPv6 free in ipfw3.c (i.e. compiles on IPv6 free systems)
 
 Release Engineering:
 - Website: update README-examples and reactivate

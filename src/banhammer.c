@@ -374,7 +374,7 @@ void printTable( )
 
     STAILQ_FOREACH( g, &groups, next )
     {
-        printLog( LOG_NOTICE, "[table=%d, within=%ld, count=%d, reset=%ld, random=%d, continue=%s,\n"
+        printLog( LOG_DEBUG, "[table=%d, within=%ld, count=%d, reset=%ld, random=%d, continue=%s,\n"
                         " warnfail=%s, onfail=%s, maxhosts=%d, warnmax=%s, onmax=%s, blocklocal=%s]\n",
                         g->table,
                         g->within_time,
@@ -388,19 +388,19 @@ void printTable( )
                         g->flags & BIF_WARNMAX ? "yes" : "no",
                         g->flags & BIF_BLOCKMAX ? "block" : "ignore",
                         g->flags & BIF_BLOCKLOCAL ? "yes" : "no" );
-        printLog( LOG_NOTICE, "Number of pattern: %d\tCurrently watched hosts: %d\n", g->reg_count, g->host_count );
+        printLog( LOG_DEBUG, "Number of pattern: %d\tCurrently watched hosts: %d\n", g->reg_count, g->host_count );
 
-        printLog( LOG_NOTICE, "\nmatches\tpattern\n" );
-        printLog( LOG_NOTICE, "-----------------------------------------------------------\n" );
+        printLog( LOG_DEBUG, "\nmatches\tpattern\n" );
+        printLog( LOG_DEBUG, "-----------------------------------------------------------\n" );
         STAILQ_FOREACH( r, &g->regexps, next )
-            printLog( LOG_NOTICE, "%d\t%s\n", r->matches, r->exp );
+            printLog( LOG_DEBUG, "%d\t%s\n", r->matches, r->exp );
 
         if( g->host_count > 0 )
         {
-            printLog( LOG_NOTICE, "\nhost\tcount\texpires in\tstatus\n" );
-            printLog( LOG_NOTICE, "-----------------------------------------------------------\n" );
+            printLog( LOG_DEBUG, "\nhost\tcount\texpires in\tstatus\n" );
+            printLog( LOG_DEBUG, "-----------------------------------------------------------\n" );
             STAILQ_FOREACH( h, &g->hosts, next )
-                printLog( LOG_NOTICE, "%s\t%d\t%ld sec\t%s\n", h->hostname, h->count, h->access_time + g->within_time - now,
+                printLog( LOG_DEBUG, "%s\t%d\t%ld sec\t%s\n", h->hostname, h->count, h->access_time + g->within_time - now,
                                 h->count > g->max_count ? "failed" : (h->count == g->max_count ? "blocked" : "watching") );
         }
     }
