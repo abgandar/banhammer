@@ -715,7 +715,7 @@ int readConfigFile( const char* file )
     f = fopen( file, "r" );
     if( !f )
     {
-        warn( "Cannot open configuration file '%s'", file );
+        log( LOG_WARNING, "Cannot open configuration file '%s'", file );
         return -1;
     }
 
@@ -728,7 +728,7 @@ int readConfigFile( const char* file )
         // try to parse current line as group definition
         if( (rc = parseGroupData( line, &g )) )
         {
-            warnx( "%s:%i  %s", file, lc, error_messages[rc] );
+            log( LOG_WARNING, "%s:%i  %s", file, lc, error_messages[rc] );
             ec++;
         }
 
@@ -740,7 +740,7 @@ int readConfigFile( const char* file )
 
             if( g && (rc = addRegexp( line, g )) )
             {
-                warnx( "%s:%i  %s", file, lc, error_messages[rc] );
+                log( LOG_WARNING, "%s:%i  %s", file, lc, error_messages[rc] );
                 ec++;
             }
         }
@@ -803,7 +803,6 @@ int mainLoop( int argc, char *argv[] )
                 if( readConfigFile( optarg ) )
                 {
                     log( LOG_ALERT, "Invalid configuration in file '%s'.", optarg );
-                    warnx( "Invalid configuration in file '%s'.", optarg );
                     return( EX_CONFIG );
                 }
                 done = 1;
@@ -816,7 +815,6 @@ int mainLoop( int argc, char *argv[] )
                 if( !pwd )
                 {
                     log( LOG_ALERT, "Unknown user name '%s'.", optarg );
-                    warnx( "Unknown user name '%s'.", optarg );
                     return( EX_CONFIG );
                 }
                 uid = pwd->pw_uid;
@@ -828,7 +826,6 @@ int mainLoop( int argc, char *argv[] )
                 if( !grp )
                 {
                     log( LOG_ALERT, "Unknown group name '%s'.", optarg );
-                    warnx( "Unknown group name '%s'.", optarg );
                     return( EX_CONFIG );
                 }
                 gid = grp->gr_gid;
@@ -857,7 +854,6 @@ int mainLoop( int argc, char *argv[] )
     if( optind < argc )
     {
         log( LOG_ALERT, "Invalid command line option '%s'.", argv[optind] );
-        warnx( "Invalid command line option '%s'", argv[optind] );
         return( EX_CONFIG );
     }
 
@@ -866,7 +862,6 @@ int mainLoop( int argc, char *argv[] )
         if( readConfigFile( default_config_file ) )
         {
             log( LOG_ALERT, "Invalid configuration in file '%s'.", default_config_file );
-            warnx( "Invalid configuration in file '%s'", default_config_file );
             return( EX_CONFIG );
         }
 
@@ -877,7 +872,6 @@ int mainLoop( int argc, char *argv[] )
     if( i == 0 )
     {
         log( LOG_ALERT, "No regular expression pattern specified for matching!" );
-        warnx( "No regular expression pattern specified for matching" );
         return( EX_CONFIG );
     }
 
@@ -885,7 +879,7 @@ int mainLoop( int argc, char *argv[] )
     // from now on we don't do file I/O any more (except if we receive a SIGHUP, which is not supported in chroot mode)
     if( root_dir )
         if( chroot( root_dir ) )
-            warn( "Changing root to %s failed", root_dir );
+            log( LOG_WARNING, "Changing root to %s failed", root_dir );
 
 #ifdef WITH_USERS
     // drop root group
@@ -893,14 +887,14 @@ int mainLoop( int argc, char *argv[] )
     {
         rc = setgroups( 1, &gid );
         if( setgid( gid ) || rc )
-            warn( "Changing group to %s (%d) failed", gid_name, gid );
+            log( LOG_WARNING, "Changing group to %s (%d) failed", gid_name, gid );
     }
 
     // drop root user
     if( uid )
     {
         if( setuid( uid ) )
-            warn( "Changing user to %s (%d) failed", uid_name, uid );
+            log( LOG_WARNING, "Changing user to %s (%d) failed", uid_name, uid );
     }
  #endif
 
@@ -916,7 +910,6 @@ int mainLoop( int argc, char *argv[] )
             if( rc < 0 )
             {
                 log( LOG_ERR, "Error getting number of PCRE2 regexp subpattern for '%s' (rc=%d).", rptr->exp, rc );
-                warnx( "Error getting number of PCRE2 regexp subpattern for '%s' (rc=%d)", rptr->exp, rc );
                 return( EX_SOFTWARE );
             }
             if( i > nmatch )
@@ -933,7 +926,6 @@ int mainLoop( int argc, char *argv[] )
     if( !md )
     {
         log( LOG_ERR, "Error allocating enough memory for match_data (%u matches).", nmatch );
-        warn( "Error allocating enough memory for match_data (%u matches)", nmatch );
         return( EX_OSERR );
     }
 #else
@@ -941,7 +933,6 @@ int mainLoop( int argc, char *argv[] )
     if( !pmatch )
     {
         log( LOG_ERR, "Error allocating enough memory for pmatch (%lud bytes).", nmatch*sizeof(regmatch_t) );
-        warn( "Error allocating enough memory for pmatch (%lud bytes)", nmatch*sizeof(regmatch_t) );
         return( EX_OSERR );
     }
 #endif
@@ -955,20 +946,25 @@ int mainLoop( int argc, char *argv[] )
             done = 0;
             STAILQ_FOREACH( rptr, &gptr->regexps, next )
             {
+                if( loglevel >= 3 )
+                    log( LOG_DEBUG, "%s", line );
 #ifdef HAVE_LIBPCRE2
                 rc = pcre2_match( rptr->re, (PCRE2_SPTR)line, length, 0, PCRE2_NOTEMPTY, md, NULL );
 
                 if( rc <= 0 )
                 {
                     if( rc != PCRE2_ERROR_NOMATCH )
-                        log( LOG_ERR, "Error in pcre2_match for regexp '%s' with subject '%s' (rc=%d).", rptr->exp, line, rc );
+                    {
+                        if( loglevel < 3 ) log( LOG_ERR, "%s", line );
+                        log( LOG_ERR, "Error in pcre2_match for regexp '%s' (rc=%d).", rptr->exp, rc );
+                    }
                 }
                 else if( (pcre2_substring_get_byname( md, (PCRE2_SPTR)"host", (PCRE2_UCHAR**)&hostname, &hostlen ) == 0) ||
                          (pcre2_substring_get_bynumber( md, 1, (PCRE2_UCHAR**)&hostname, &hostlen ) == 0) )
                 {
                     // we caught a bad guy!
                     if( loglevel >= 3 )
-                        log( LOG_DEBUG, "Regular expression '%s' matches '%s' for host '%s'.", rptr->exp, line, hostname );
+                        log( LOG_DEBUG, "Regular expression '%s' matches with host '%s'.", rptr->exp, hostname );
                     rptr->matches++;
                     checkHost( hostname, gptr );
                     pcre2_substring_free( (PCRE2_UCHAR*)hostname );
@@ -980,7 +976,10 @@ int mainLoop( int argc, char *argv[] )
                 }
                 else
                     if( loglevel >= 1 )
-                        log( LOG_NOTICE, "No substrings in matching regexp '%s' with subject '%s' (rc=%d).", rptr->exp, line, rc );
+                    {
+                        if( loglevel < 3 ) log( LOG_NOTICE, "%s", line );
+                        log( LOG_NOTICE, "No substrings in matching regexp '%s' (rc=%d).", rptr->exp, rc );
+                    }
 #else
                 pmatch[0].rm_so = 0;
                 pmatch[0].rm_eo = length;
@@ -989,13 +988,16 @@ int mainLoop( int argc, char *argv[] )
                 if( rc )
                 {
                     if( rc != REG_NOMATCH )
-                        log( LOG_ERR, "Error in regexec for regexp '%s' with subject '%s' (rc=%d).", rptr->exp, line, rc );
+                    {
+                        if( loglevel < 3 ) log( LOG_ERR, "%s", line );
+                        log( LOG_ERR, "Error in regexec for regexp '%s' (rc=%d).", rptr->exp, rc );
+                    }
                 }
                 else if( regex_get_substring( line, &pmatch[1], &hostname ) )
                 {
                     // we caught a bad guy!
                     if( loglevel >= 3 )
-                        log( LOG_DEBUG, "Regular expression '%s' matches '%s' for host '%s'.", rptr->exp, line, hostname );
+                        log( LOG_DEBUG, "Regular expression '%s' matches with host '%s'.", rptr->exp, hostname );
                     rptr->matches++;
                     checkHost( hostname, gptr );
                     free( hostname );
@@ -1007,7 +1009,10 @@ int mainLoop( int argc, char *argv[] )
                 }
                 else
                     if( loglevel >= 1 )
-                        log( LOG_NOTICE, "No substrings in matching regexp '%s' with subject '%s' (rc=%d).", rptr->exp, line, rc );
+                    {
+                        if( loglevel < 3 ) log( LOG_NOTICE, "%s", line );
+                        log( LOG_NOTICE, "No substrings in matching regexp '%s' (rc=%d).", rptr->exp, rc );
+                    }
 #endif
             }
             if( done ) break;
