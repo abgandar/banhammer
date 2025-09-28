@@ -349,7 +349,7 @@ static int clean_cycle( int daemonize )
             if( errno == EEXIST )
             {
                 fw_close( );
-                closeprintLog( );
+                closelog( );
                 errx( EXIT_FAILURE, "Another instance is already running (pid=%d).", otherpid );
             }
             printLog( LOG_WARNING, "Cannot open or create pid file: %s.", pid_file );
@@ -365,7 +365,7 @@ static int clean_cycle( int daemonize )
     {
         pidfile_remove( pfh );
         fw_close( );
-        closeprintLog( );
+        closelog( );
         errx( EX_OSERR, "Failed to become a daemon." );
     }
 
@@ -495,7 +495,7 @@ int main( int argc, char *argv[] )
         errx( EX_CONFIG, "Error initializing IPFW (rc=%d).", rc );
 
     // open syslog
-    openprintLog( "banhammerd", LOG_PID, LOG_SECURITY );
+    openlog( "banhammerd", LOG_PID, LOG_SECURITY );
 
     // run the requested mode
     switch( mode )
@@ -514,7 +514,7 @@ int main( int argc, char *argv[] )
 
     // clean up
     fw_close( );
-    closeprintLog( );
+    closelog( );
 
     while( !STAILQ_EMPTY( &tables ) )
     {

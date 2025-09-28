@@ -1053,16 +1053,16 @@ int main( int argc, char *argv[] )
 
     // open syslog
 #ifdef LOG_SECURITY
-    openprintLog( "banhammer", LOG_PID, LOG_SECURITY );     // FreeBSD style
+    openlog( "banhammer", LOG_PID, LOG_SECURITY );     // FreeBSD style
 #else
-    openprintLog( "banhammer", LOG_PID, LOG_AUTH );         // Apple style
+    openlog( "banhammer", LOG_PID, LOG_AUTH );         // Apple style
 #endif
 
     // see if we are root
     if( geteuid( ) != 0 )
     {
-        sysprintLog( LOG_ALERT, "Banhammer has to be run as root." );
-        closeprintLog( );
+        syslog( LOG_ALERT, "Banhammer has to be run as root." );
+        closelog( );
         errx( EX_OSERR, "Banhammer has to be run as root." );
     }
 
@@ -1070,8 +1070,8 @@ int main( int argc, char *argv[] )
     rc = fw_init( );
     if( rc )
     {
-        sysprintLog( LOG_ERR, "Error initializing IPFW (rc=%d).", rc );
-        closeprintLog( );
+        syslog( LOG_ERR, "Error initializing IPFW (rc=%d).", rc );
+        closelog( );
         errx( EX_CONFIG, "Error initializing IPFW (rc=%d).", rc );
     }
 
@@ -1095,7 +1095,7 @@ int main( int argc, char *argv[] )
 
     // We are done here, clean up
     fw_close( );
-    closeprintLog( );
+    closelog( );
 
     return rc;
 }
