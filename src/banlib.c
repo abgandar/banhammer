@@ -95,6 +95,15 @@ int fw_del( struct sockaddr* addr, socklen_t addrlen, u_int16_t table )
     return rc == 0 ? 0 : 1;
 }
 
+// Handle different table types (mark available since FBSD 14)
+#ifdef HAVE_IPFW_VTYPE_MARK
+#define VTYPE (IPFW_VTYPE_MARK | IPFW_VTYPE_TAG)
+#define VALUE(v, vt) (((vt) & IPFW_VTYPE_MARK) ? ((v).value.mark) : ((v).value.tag))
+#else
+#define VTYPE IPFW_VTYPE_TAG
+#define VALUE(v, vt) ((v).value.tag)
+#endif
+
 // internal helper to execute an IPFW table command.
 // Opcode is BANLIB_ADD or BANLIB_DEL
 static int fw_table_cmd( int opcode, struct sockaddr* addr, socklen_t addrlen, u_int32_t value, u_int16_t table )
@@ -131,7 +140,6 @@ static int fw_table_cmd( int opcode, struct sockaddr* addr, socklen_t addrlen, u
     tent->head.length = sizeof(ipfw_obj_tentry);
     tent->head.flags |= (opcode == BANLIB_ADD) ? IPFW_TF_UPDATE : 0;
     tent->idx = oh->idx;
-    tent->v.value.mark = value;
     // set all other values in case this is a legacy table (masked out again by IPFW)
     tent->v.value.tag = value;
     tent->v.value.pipe = value;
@@ -143,6 +151,9 @@ static int fw_table_cmd( int opcode, struct sockaddr* addr, socklen_t addrlen, u
     tent->v.value.nh4 = value;
     tent->v.value.dscp = (uint8_t)value;
     tent->v.value.limit = value;
+#ifdef HAVE_IPFW_VTYPE_MARK
+    tent->v.value.mark = value;
+#endif
 
     switch( addr->sa_family )
     {
@@ -216,7 +227,7 @@ int fw_list( void (*callback)(struct sockaddr*, socklen_t, u_int32_t, u_int16_t)
         return 1;
     }
     ti = (ipfw_xtable_info*)(oh + 1);
-    if( ti->type != IPFW_TABLE_ADDR || (ti->vmask & IPFW_VTYPE_MARK) == 0 )     // also accepts VTYPE_LEGACY
+    if( ti->type != IPFW_TABLE_ADDR || (ti->vmask & VTYPE) == 0 )     // also accepts VTYPE_LEGACY
     {
         free( oh );
         return 1;
@@ -250,13 +261,13 @@ int fw_list( void (*callback)(struct sockaddr*, socklen_t, u_int32_t, u_int16_t)
         if( tent->subtype == AF_INET )
         {
             sa4.sin_addr = tent->k.addr;
-            (*callback)( (struct sockaddr*)&sa4, sizeof(sa4), tent->v.value.mark, table );
+            (*callback)( (struct sockaddr*)&sa4, sizeof(sa4), VALUE(tent->v, ti->vmask), table );
         }
 #ifdef WITH_IPV6
         else if( tent->subtype == AF_INET6 )
         {
             sa6.sin6_addr = tent->k.addr6;
-            (*callback)( (struct sockaddr*)&sa6, sizeof(sa6), tent->v.value.mark, table );
+            (*callback)( (struct sockaddr*)&sa6, sizeof(sa6), VALUE(tent->v, ti->vmask), table );
         }
 #endif
         tent = (ipfw_obj_tentry*)((caddr_t)tent + tent->head.length);

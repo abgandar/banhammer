@@ -91,7 +91,7 @@ AS_IF([test ".$with_pcre2" = ".no"],
   ]
 )
 
-# Check if we have IPFW3 API version 1
+# Check if we have modern IPFW3 API version 1 (FreeBSD 11+)
 AC_CHECK_TYPE([ipfw_obj_header],
   [
     AC_DEFINE([HAVE_IPFW3],[],[Define to 1 if you have IPFW3])
@@ -100,6 +100,21 @@ AC_CHECK_TYPE([ipfw_obj_header],
   [
     AC_MSG_ERROR([IPFW3 with version 1 API (FreeBSD 11+) not found.])
   ],
+  [
+#include <stddef.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <netinet/ip_fw.h>
+  ]
+)
+
+# Check if we have IPFW_VTYPE_MARK table value type (FreeBSD 14+)
+AC_CHECK_MEMBER([struct _ipfw_table_value.mark],
+  [
+    AC_DEFINE([HAVE_IPFW_VTYPE_MARK],[],[Define to 1 if you have IPFW_VTYPE_MARK])
+    have_ipfw_vtype_mark=yes
+  ],
+  [],
   [
 #include <stddef.h>
 #include <net/if.h>
