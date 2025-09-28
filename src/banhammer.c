@@ -33,6 +33,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <stdarg.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <time.h>
@@ -265,6 +266,20 @@ static void version( )
     );
 }
 
+// Log a message either to the console (if run interactively) or to syslog
+static void log( int priority, const char * restrict message, ...)
+{
+    va_list ap;
+    va_start( ap, message );
+
+    if( isatty( fileno( stderr ) ) )
+        vfprintf( stderr, message, ap );
+    else
+        vsyslog( priority, message, ap );
+
+    va_end( ap );
+}
+
 // Walk the groups host list and delete old entries on the way. If we find the
 // given host name: bump it up and if necessary block it. If we don't find it,
 // add it.
@@ -280,7 +295,7 @@ static int checkHost( const char *host, struct bgroup* g )
         if( ptr->access_time + g->within_time < ct )
         {
             if( loglevel >= 3 )
-               syslog( LOG_DEBUG, "Removed host '%s' from watch list", ptr->hostname );
+               log( LOG_DEBUG, "Removed host '%s' from watch list", ptr->hostname );
 
             // Remove and free this entry
             STAILQ_REMOVE_HEAD( &g->hosts, next );
@@ -306,14 +321,14 @@ static int checkHost( const char *host, struct bgroup* g )
         {
             ptr->count++;
             if( loglevel >= 3 )
-               syslog( LOG_DEBUG, "Increased hit count for host '%s' to %i.", host, ptr->count );
+               log( LOG_DEBUG, "Increased hit count for host '%s' to %i.", host, ptr->count );
 
             if( ptr->count == g->max_count )
                 addHostLong( host, bt, g->table, rt, g->flags & BIF_BLOCKLOCAL );
             else if( ptr->count > g->max_count )
             {
                 if( (loglevel >= 1) && (g->flags & BIF_WARNFAIL) && (ptr->count == g->max_count + 1) )
-                    syslog( LOG_WARNING, "Hit from blocked host '%s'.", host );
+                    log( LOG_WARNING, "Hit from blocked host '%s'.", host );
                 if( g->flags & BIF_BLOCKFAIL )
                     addHostLong( host, bt, g->table, rt, g->flags & BIF_BLOCKLOCAL );
             }
@@ -324,25 +339,25 @@ static int checkHost( const char *host, struct bgroup* g )
     if( (g->max_hosts > 0) && (g->host_count >= g->max_hosts) )
     {
         if( (loglevel >= 1) && (g->flags & BIF_WARNMAX) )
-            syslog( LOG_NOTICE, "Maximum number of watched hosts exceeded." );
+            log( LOG_NOTICE, "Maximum number of watched hosts exceeded." );
 
         // block the host preemptively if requested
         if( g->flags & BIF_BLOCKMAX )
         {
             if( loglevel >= 2 )
-                syslog( LOG_NOTICE, "Preemptively blocking host '%s'.", host );
+                log( LOG_NOTICE, "Preemptively blocking host '%s'.", host );
             addHostLong( host, bt, g->table, rt, g->flags & BIF_BLOCKLOCAL );
         }
         else
             if( loglevel >= 2 )
-                syslog( LOG_NOTICE, "Ignoring host '%s'.", host );
+                log( LOG_NOTICE, "Ignoring host '%s'.", host );
     }
     else
     {
         if( (ptr = (struct host*) malloc( sizeof(struct host) )) == NULL )
         {
             if( loglevel >= 1 )
-                syslog( LOG_ERR, "Out of memory, ignoring host '%s'.", host );
+                log( LOG_ERR, "Out of memory, ignoring host '%s'.", host );
             return -1;
         }
 
@@ -354,7 +369,7 @@ static int checkHost( const char *host, struct bgroup* g )
         STAILQ_INSERT_TAIL( &g->hosts, ptr, next );
 
         if( loglevel >= 3 )
-            syslog( LOG_DEBUG, "Added host '%s' to watch list.", host );
+            log( LOG_DEBUG, "Added host '%s' to watch list.", host );
 
         // just checking if someone is really cruel
         if( ptr->count == g->max_count )
@@ -372,36 +387,73 @@ void printTable( )
     struct bgroup *g;
     int now = time( NULL );
 
-    STAILQ_FOREACH( g, &groups, next )
+    if( isatty( 1 ) )
     {
-        fprintf( stderr, "[table=%d, within=%ld, count=%d, reset=%ld, random=%d, continue=%s,\n"
-                         " warnfail=%s, onfail=%s, maxhosts=%d, warnmax=%s, onmax=%s, blocklocal=%s]\n",
-                         g->table,
-                         g->within_time,
-                         g->max_count,
-                         g->reset_time,
-                         g->random,
-                         g->flags & BIF_CONTINUE ? (g->flags & BIF_SKIP ? "next" : "yes") : "no",
-                         g->flags & BIF_WARNFAIL ? "yes" : "no",
-                         g->flags & BIF_BLOCKFAIL ? "block" : "ignore",
-                         g->max_hosts,
-                         g->flags & BIF_WARNMAX ? "yes" : "no",
-                         g->flags & BIF_BLOCKMAX ? "block" : "ignore",
-                         g->flags & BIF_BLOCKLOCAL ? "yes" : "no" );
-        fprintf( stderr, "Number of pattern: %d\t\tCurrently watched hosts: %d\n", g->reg_count, g->host_count );
+        STAILQ_FOREACH( g, &groups, next )
+        {
+            fprintf( stderr, "[table=%d, within=%ld, count=%d, reset=%ld, random=%d, continue=%s,\n"
+                            " warnfail=%s, onfail=%s, maxhosts=%d, warnmax=%s, onmax=%s, blocklocal=%s]\n",
+                            g->table,
+                            g->within_time,
+                            g->max_count,
+                            g->reset_time,
+                            g->random,
+                            g->flags & BIF_CONTINUE ? (g->flags & BIF_SKIP ? "next" : "yes") : "no",
+                            g->flags & BIF_WARNFAIL ? "yes" : "no",
+                            g->flags & BIF_BLOCKFAIL ? "block" : "ignore",
+                            g->max_hosts,
+                            g->flags & BIF_WARNMAX ? "yes" : "no",
+                            g->flags & BIF_BLOCKMAX ? "block" : "ignore",
+                            g->flags & BIF_BLOCKLOCAL ? "yes" : "no" );
+            fprintf( stderr, "Number of pattern: %d\t\tCurrently watched hosts: %d\n", g->reg_count, g->host_count );
 
-        fprintf( stderr, "\nmatches\t\tpattern\n"
-                         "-----------------------------------------------------------\n" );
-        STAILQ_FOREACH( r, &g->regexps, next )
-            fprintf( stderr, "%d\t\t%s\n", r->matches, r->exp );
+            fprintf( stderr, "\nmatches\t\tpattern\n"
+                            "-----------------------------------------------------------\n" );
+            STAILQ_FOREACH( r, &g->regexps, next )
+                fprintf( stderr, "%d\t\t%s\n", r->matches, r->exp );
 
-        fprintf( stderr, "\nhost\t\t\tcount\texpires in\tstatus\n"
-                         "-----------------------------------------------------------\n" );
-        STAILQ_FOREACH( h, &g->hosts, next )
-            fprintf( stderr, "%s\t\t\t%d\t%ld sec\t\t%s\n", h->hostname, h->count, h->access_time + g->within_time - now,
-                             h->count > g->max_count ? "failed" : (h->count == g->max_count ? "blocked" : "watching") );
+            fprintf( stderr, "\nhost\t\t\tcount\texpires in\tstatus\n"
+                            "-----------------------------------------------------------\n" );
+            STAILQ_FOREACH( h, &g->hosts, next )
+                fprintf( stderr, "%s\t\t\t%d\t%ld sec\t\t%s\n", h->hostname, h->count, h->access_time + g->within_time - now,
+                                h->count > g->max_count ? "failed" : (h->count == g->max_count ? "blocked" : "watching") );
 
-        fprintf( stderr, "\n\n" );
+            fprintf( stderr, "\n\n" );
+        }
+    }
+    else
+    {
+        STAILQ_FOREACH( g, &groups, next )
+        {
+            fprintf( stderr, "[table=%d, within=%ld, count=%d, reset=%ld, random=%d, continue=%s,\n"
+                            " warnfail=%s, onfail=%s, maxhosts=%d, warnmax=%s, onmax=%s, blocklocal=%s]\n",
+                            g->table,
+                            g->within_time,
+                            g->max_count,
+                            g->reset_time,
+                            g->random,
+                            g->flags & BIF_CONTINUE ? (g->flags & BIF_SKIP ? "next" : "yes") : "no",
+                            g->flags & BIF_WARNFAIL ? "yes" : "no",
+                            g->flags & BIF_BLOCKFAIL ? "block" : "ignore",
+                            g->max_hosts,
+                            g->flags & BIF_WARNMAX ? "yes" : "no",
+                            g->flags & BIF_BLOCKMAX ? "block" : "ignore",
+                            g->flags & BIF_BLOCKLOCAL ? "yes" : "no" );
+            fprintf( stderr, "Number of pattern: %d\t\tCurrently watched hosts: %d\n", g->reg_count, g->host_count );
+
+            fprintf( stderr, "\nmatches\t\tpattern\n"
+                            "-----------------------------------------------------------\n" );
+            STAILQ_FOREACH( r, &g->regexps, next )
+                fprintf( stderr, "%d\t\t%s\n", r->matches, r->exp );
+
+            fprintf( stderr, "\nhost\t\t\tcount\texpires in\tstatus\n"
+                            "-----------------------------------------------------------\n" );
+            STAILQ_FOREACH( h, &g->hosts, next )
+                fprintf( stderr, "%s\t\t\t%d\t%ld sec\t\t%s\n", h->hostname, h->count, h->access_time + g->within_time - now,
+                                h->count > g->max_count ? "failed" : (h->count == g->max_count ? "blocked" : "watching") );
+
+            fprintf( stderr, "\n\n" );
+        }
     }
 }
 
@@ -787,7 +839,7 @@ int mainLoop( int argc, char *argv[] )
             case 'f':
                 if( readConfigFile( optarg ) )
                 {
-                    syslog( LOG_ALERT, "Invalid configuration in file '%s'.", optarg );
+                    log( LOG_ALERT, "Invalid configuration in file '%s'.", optarg );
                     warnx( "Invalid configuration in file '%s'.", optarg );
                     return( EX_CONFIG );
                 }
@@ -800,7 +852,7 @@ int mainLoop( int argc, char *argv[] )
                 pwd = getpwnam( uid_name );
                 if( !pwd )
                 {
-                    syslog( LOG_ALERT, "Unknown user name '%s'.", optarg );
+                    log( LOG_ALERT, "Unknown user name '%s'.", optarg );
                     warnx( "Unknown user name '%s'.", optarg );
                     return( EX_CONFIG );
                 }
@@ -812,7 +864,7 @@ int mainLoop( int argc, char *argv[] )
                 grp = getgrnam( gid_name );
                 if( !grp )
                 {
-                    syslog( LOG_ALERT, "Unknown group name '%s'.", optarg );
+                    log( LOG_ALERT, "Unknown group name '%s'.", optarg );
                     warnx( "Unknown group name '%s'.", optarg );
                     return( EX_CONFIG );
                 }
@@ -841,7 +893,7 @@ int mainLoop( int argc, char *argv[] )
     // warn if there are extra options at the end
     if( optind < argc )
     {
-        syslog( LOG_ALERT, "Invalid command line option '%s'.", argv[optind] );
+        log( LOG_ALERT, "Invalid command line option '%s'.", argv[optind] );
         warnx( "Invalid command line option '%s'", argv[optind] );
         return( EX_CONFIG );
     }
@@ -850,7 +902,7 @@ int mainLoop( int argc, char *argv[] )
     if( !done )
         if( readConfigFile( default_config_file ) )
         {
-            syslog( LOG_ALERT, "Invalid configuration in file '%s'.", default_config_file );
+            log( LOG_ALERT, "Invalid configuration in file '%s'.", default_config_file );
             warnx( "Invalid configuration in file '%s'", default_config_file );
             return( EX_CONFIG );
         }
@@ -861,7 +913,7 @@ int mainLoop( int argc, char *argv[] )
         if( !STAILQ_EMPTY( &gptr->regexps ) ) i++;
     if( i == 0 )
     {
-        syslog( LOG_ALERT, "No regular expression pattern specified for matching!" );
+        log( LOG_ALERT, "No regular expression pattern specified for matching!" );
         warnx( "No regular expression pattern specified for matching" );
         return( EX_CONFIG );
     }
@@ -900,7 +952,7 @@ int mainLoop( int argc, char *argv[] )
             rc = pcre2_pattern_info( rptr->re, PCRE2_INFO_CAPTURECOUNT, &i );
             if( rc < 0 )
             {
-                syslog( LOG_ERR, "Error getting number of PCRE2 regexp subpattern for '%s' (rc=%d).", rptr->exp, rc );
+                log( LOG_ERR, "Error getting number of PCRE2 regexp subpattern for '%s' (rc=%d).", rptr->exp, rc );
                 warnx( "Error getting number of PCRE2 regexp subpattern for '%s' (rc=%d)", rptr->exp, rc );
                 return( EX_SOFTWARE );
             }
@@ -917,7 +969,7 @@ int mainLoop( int argc, char *argv[] )
     md = pcre2_match_data_create( nmatch, NULL );
     if( !md )
     {
-        syslog( LOG_ERR, "Error allocating enough memory for match_data (%u matches).", nmatch );
+        log( LOG_ERR, "Error allocating enough memory for match_data (%u matches).", nmatch );
         warn( "Error allocating enough memory for match_data (%u matches)", nmatch );
         return( EX_OSERR );
     }
@@ -925,7 +977,7 @@ int mainLoop( int argc, char *argv[] )
     pmatch = (regmatch_t*) calloc( nmatch, sizeof(regmatch_t) );
     if( !pmatch )
     {
-        syslog( LOG_ERR, "Error allocating enough memory for pmatch (%lud bytes).", nmatch*sizeof(regmatch_t) );
+        log( LOG_ERR, "Error allocating enough memory for pmatch (%lud bytes).", nmatch*sizeof(regmatch_t) );
         warn( "Error allocating enough memory for pmatch (%lud bytes)", nmatch*sizeof(regmatch_t) );
         return( EX_OSERR );
     }
@@ -946,14 +998,14 @@ int mainLoop( int argc, char *argv[] )
                 if( rc <= 0 )
                 {
                     if( rc != PCRE2_ERROR_NOMATCH )
-                        syslog( LOG_ERR, "Error in pcre2_match for regexp '%s' with subject '%s' (rc=%d).", rptr->exp, line, rc );
+                        log( LOG_ERR, "Error in pcre2_match for regexp '%s' with subject '%s' (rc=%d).", rptr->exp, line, rc );
                 }
                 else if( (pcre2_substring_get_byname( md, (PCRE2_SPTR)"host", (PCRE2_UCHAR**)&hostname, &hostlen ) == 0) ||
                          (pcre2_substring_get_bynumber( md, 1, (PCRE2_UCHAR**)&hostname, &hostlen ) == 0) )
                 {
                     // we caught a bad guy!
                     if( loglevel >= 3 )
-                        syslog( LOG_DEBUG, "Regular expression '%s' matches '%s' for host '%s'.", rptr->exp, line, hostname );
+                        log( LOG_DEBUG, "Regular expression '%s' matches '%s' for host '%s'.", rptr->exp, line, hostname );
                     rptr->matches++;
                     checkHost( hostname, gptr );
                     pcre2_substring_free( (PCRE2_UCHAR*)hostname );
@@ -965,7 +1017,7 @@ int mainLoop( int argc, char *argv[] )
                 }
                 else
                     if( loglevel >= 1 )
-                        syslog( LOG_NOTICE, "No substrings in matching regexp '%s' with subject '%s' (rc=%d).", rptr->exp, line, rc );
+                        log( LOG_NOTICE, "No substrings in matching regexp '%s' with subject '%s' (rc=%d).", rptr->exp, line, rc );
 #else
                 pmatch[0].rm_so = 0;
                 pmatch[0].rm_eo = length;
@@ -974,13 +1026,13 @@ int mainLoop( int argc, char *argv[] )
                 if( rc )
                 {
                     if( rc != REG_NOMATCH )
-                        syslog( LOG_ERR, "Error in regexec for regexp '%s' with subject '%s' (rc=%d).", rptr->exp, line, rc );
+                        log( LOG_ERR, "Error in regexec for regexp '%s' with subject '%s' (rc=%d).", rptr->exp, line, rc );
                 }
                 else if( regex_get_substring( line, &pmatch[1], &hostname ) )
                 {
                     // we caught a bad guy!
                     if( loglevel >= 3 )
-                        syslog( LOG_DEBUG, "Regular expression '%s' matches '%s' for host '%s'.", rptr->exp, line, hostname );
+                        log( LOG_DEBUG, "Regular expression '%s' matches '%s' for host '%s'.", rptr->exp, line, hostname );
                     rptr->matches++;
                     checkHost( hostname, gptr );
                     free( hostname );
@@ -992,7 +1044,7 @@ int mainLoop( int argc, char *argv[] )
                 }
                 else
                     if( loglevel >= 1 )
-                        syslog( LOG_NOTICE, "No substrings in matching regexp '%s' with subject '%s' (rc=%d).", rptr->exp, line, rc );
+                        log( LOG_NOTICE, "No substrings in matching regexp '%s' with subject '%s' (rc=%d).", rptr->exp, line, rc );
 #endif
             }
             if( done ) break;
