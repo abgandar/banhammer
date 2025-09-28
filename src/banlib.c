@@ -27,6 +27,7 @@
 
 #define _WITH_GETLINE
 #include <stdlib.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stddef.h>
 #include <unistd.h>
