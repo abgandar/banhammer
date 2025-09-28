@@ -422,3 +422,17 @@ int addHost( const char* host, uint32_t value, uint32_t table )
 {
     return addHostLong( host, value, table, 0, 0 );
 }
+
+// Log a message either to the console (if run interactively) or to syslog
+void log( int priority, const char * restrict message, ...)
+{
+    va_list ap;
+    va_start( ap, message );
+
+    if( isatty( fileno( stderr ) ) )
+        vfprintf( stderr, message, ap );
+    else
+        vsyslog( priority, message, ap );
+
+    va_end( ap );
+}

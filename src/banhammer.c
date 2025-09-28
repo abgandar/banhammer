@@ -266,20 +266,6 @@ static void version( )
     );
 }
 
-// Log a message either to the console (if run interactively) or to syslog
-static void log( int priority, const char * restrict message, ...)
-{
-    va_list ap;
-    va_start( ap, message );
-
-    if( isatty( fileno( stderr ) ) )
-        vfprintf( stderr, message, ap );
-    else
-        vsyslog( priority, message, ap );
-
-    va_end( ap );
-}
-
 // Walk the groups host list and delete old entries on the way. If we find the
 // given host name: bump it up and if necessary block it. If we don't find it,
 // add it.
@@ -410,11 +396,14 @@ void printTable( )
         STAILQ_FOREACH( r, &g->regexps, next )
             log( LOG_NOTICE, "%d\t%s\n", r->matches, r->exp );
 
-        log( LOG_NOTICE, "\nhost\tcount\texpires in\tstatus\n" );
-        log( LOG_NOTICE, "-----------------------------------------------------------\n" );
-        STAILQ_FOREACH( h, &g->hosts, next )
-            log( LOG_NOTICE, "%s\t%d\t%ld sec\t%s\n", h->hostname, h->count, h->access_time + g->within_time - now,
-                            h->count > g->max_count ? "failed" : (h->count == g->max_count ? "blocked" : "watching") );
+        if( g->host_count > 0 )
+        {
+            log( LOG_NOTICE, "\nhost\tcount\texpires in\tstatus\n" );
+            log( LOG_NOTICE, "-----------------------------------------------------------\n" );
+            STAILQ_FOREACH( h, &g->hosts, next )
+                log( LOG_NOTICE, "%s\t%d\t%ld sec\t%s\n", h->hostname, h->count, h->access_time + g->within_time - now,
+                                h->count > g->max_count ? "failed" : (h->count == g->max_count ? "blocked" : "watching") );
+        }
     }
 }
 
