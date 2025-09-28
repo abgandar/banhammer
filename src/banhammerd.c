@@ -181,11 +181,11 @@ static void check_entry( struct sockaddr *addr, socklen_t addrlen, u_int32_t val
         if( fw_del( addr, addrlen, table ) )
         {
             if( loglevel >= 1 )
-                log( LOG_WARNING, "Error removing %s from IPFW table %i (%i)", ip, table, errno );
+                printLog( LOG_WARNING, "Error removing %s from IPFW table %i (%i)", ip, table, errno );
         }
         else
             if( loglevel >= 2 )
-                log( LOG_INFO, "Removed %s from IPFW table %i", ip, table );
+                printLog( LOG_INFO, "Removed %s from IPFW table %i", ip, table );
     }
 }
 
@@ -237,7 +237,7 @@ static void save_state( )
     if( !(sf = fopen( state_file, "w" )) )
     {
         if( loglevel >= 1 )
-            log( LOG_WARNING, "Could not open state file '%s' for writing.", state_file );
+            printLog( LOG_WARNING, "Could not open state file '%s' for writing.", state_file );
         return;
     }
     fprintf( sf, "# banhammerd IPFW table state %s# table\tvalue\tIP\n", ctime( &ct ) );
@@ -266,20 +266,20 @@ static void load_state( )
     if( stat( state_file, &sb ) )
     {
         if( loglevel >= 2 )
-            log( LOG_WARNING, "Could not examine state file '%s'.", state_file );
+            printLog( LOG_WARNING, "Could not examine state file '%s'.", state_file );
         return;
     }
     if( (sb.st_uid != 0) || (sb.st_mode&(S_IWGRP|S_IWOTH)) || !S_ISREG(sb.st_mode) )
     {
         if( loglevel >= 1 )
-            log( LOG_ERR, "State file '%s' must be owned by root and be writeable only by owner.", state_file );
+            printLog( LOG_ERR, "State file '%s' must be owned by root and be writeable only by owner.", state_file );
         return;
     }
 
     if( !(sf = fopen( state_file, "r" )) )
     {
         if( loglevel >= 2 )
-            log( LOG_WARNING, "Could not open state file '%s' for reading.", state_file );
+            printLog( LOG_WARNING, "Could not open state file '%s' for reading.", state_file );
         return;
     }
 
@@ -293,14 +293,14 @@ static void load_state( )
         if( !ip )
         {
             if( loglevel >= 2 )
-                log( LOG_INFO, "Skipping invalid state file entry (%s:%d)", state_file, i );
+                printLog( LOG_INFO, "Skipping invalid state file entry (%s:%d)", state_file, i );
             continue;
         }
         table = strtol( ip, &ip, 10 );
         if( *ip != '\0' )
         {
             if( loglevel >= 2 )
-                log( LOG_INFO, "Skipping invalid state file entry (%s:%d)", state_file, i );
+                printLog( LOG_INFO, "Skipping invalid state file entry (%s:%d)", state_file, i );
             continue;
         }
 
@@ -308,14 +308,14 @@ static void load_state( )
         if( !ip )
         {
             if( loglevel >= 2 )
-                log( LOG_INFO, "Skipping invalid state file entry (%s:%d)", state_file, i );
+                printLog( LOG_INFO, "Skipping invalid state file entry (%s:%d)", state_file, i );
             continue;
         }
         value = strtol( ip, &ip, 10 );
         if( *ip != '\0' )
         {
             if( loglevel >= 1 )
-                log( LOG_INFO, "Skipping invalid state file entry (%s:%d)", state_file, i );
+                printLog( LOG_INFO, "Skipping invalid state file entry (%s:%d)", state_file, i );
             continue;
         }
 
@@ -323,7 +323,7 @@ static void load_state( )
         if( !ip )
         {
             if( loglevel >= 1 )
-                log( LOG_INFO, "Skipping invalid state file entry (%s:%d)", state_file, i );
+                printLog( LOG_INFO, "Skipping invalid state file entry (%s:%d)", state_file, i );
             continue;
         }
 
@@ -349,23 +349,23 @@ static int clean_cycle( int daemonize )
             if( errno == EEXIST )
             {
                 fw_close( );
-                closelog( );
+                closeprintLog( );
                 errx( EXIT_FAILURE, "Another instance is already running (pid=%d).", otherpid );
             }
-            log( LOG_WARNING, "Cannot open or create pid file: %s.", pid_file );
+            printLog( LOG_WARNING, "Cannot open or create pid file: %s.", pid_file );
         }
     }
 
     // now that we have a PID file handle we can change root if necessary
     if( root_dir && chroot( root_dir ) )
-        log( LOG_WARNING, "Changing root to %s failed.", root_dir );
+        printLog( LOG_WARNING, "Changing root to %s failed.", root_dir );
 
     // daemonize if necessary and show error if that fails.
     if( daemonize && daemon( 0, 0 ) )
     {
         pidfile_remove( pfh );
         fw_close( );
-        closelog( );
+        closeprintLog( );
         errx( EX_OSERR, "Failed to become a daemon." );
     }
 
@@ -495,7 +495,7 @@ int main( int argc, char *argv[] )
         errx( EX_CONFIG, "Error initializing IPFW (rc=%d).", rc );
 
     // open syslog
-    openlog( "banhammerd", LOG_PID, LOG_SECURITY );
+    openprintLog( "banhammerd", LOG_PID, LOG_SECURITY );
 
     // run the requested mode
     switch( mode )
@@ -514,7 +514,7 @@ int main( int argc, char *argv[] )
 
     // clean up
     fw_close( );
-    closelog( );
+    closeprintLog( );
 
     while( !STAILQ_EMPTY( &tables ) )
     {

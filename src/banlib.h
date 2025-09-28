@@ -62,4 +62,4 @@ int addHostLong( const char* host, uint32_t value, uint32_t table, time_t rt, in
 int addHost( const char* host, uint32_t value, uint32_t table );
 
 // Log a message either to the console (if run interactively) or to syslog
-void log( int priority, const char * restrict message, ...);
+void printLog( int priority, const char * restrict message, ...);

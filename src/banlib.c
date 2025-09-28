@@ -367,7 +367,7 @@ int addHostLong( const char* host, uint32_t value, uint32_t table, time_t rt, in
     if( rc )
     {
         if( loglevel >= 1 )
-            syslog( LOG_NOTICE, "Failed to resolve '%s' for blocking: %s (rc=%d)", host, gai_strerror( rc ), rc );
+            sysprintLog( LOG_NOTICE, "Failed to resolve '%s' for blocking: %s (rc=%d)", host, gai_strerror( rc ), rc );
         return -1;
     }
 
@@ -382,7 +382,7 @@ int addHostLong( const char* host, uint32_t value, uint32_t table, time_t rt, in
         if( !bl && isLocal( ai->ai_addr ) )
         {
             if( loglevel >= 2 )
-                syslog( LOG_INFO, "Not blocking local IP %s.", ip );
+                sysprintLog( LOG_INFO, "Not blocking local IP %s.", ip );
             ai = ai->ai_next;
             continue;
         }
@@ -393,21 +393,21 @@ int addHostLong( const char* host, uint32_t value, uint32_t table, time_t rt, in
         {
             // don't count existing IPs as errors
             if( loglevel >= 2 )
-                syslog( LOG_INFO, "IP %s already in IPFW table %d.", ip, table );
+                sysprintLog( LOG_INFO, "IP %s already in IPFW table %d.", ip, table );
         }
         else if( rc )
         {
             if( loglevel >= 1 )
-                syslog( LOG_NOTICE, "Failed to add IP %s to IPFW table %d (rc=%d).", ip, table, rc );
+                sysprintLog( LOG_NOTICE, "Failed to add IP %s to IPFW table %d (rc=%d).", ip, table, rc );
             err--;
         }
         else
             if( loglevel >= 2 )
             {
                 if( rt > 0 )
-                    syslog( LOG_INFO, "Added %s to IPFW table %i for %ld seconds.", ip, table, rt );
+                    sysprintLog( LOG_INFO, "Added %s to IPFW table %i for %ld seconds.", ip, table, rt );
                 else
-                    syslog( LOG_INFO, "Added %s to IPFW table %d.", ip, table );
+                    sysprintLog( LOG_INFO, "Added %s to IPFW table %d.", ip, table );
             }
 
         ai = ai->ai_next;
@@ -425,7 +425,7 @@ int addHost( const char* host, uint32_t value, uint32_t table )
 }
 
 // Log a message either to the console (if run interactively) or to syslog
-void log( int priority, const char * restrict message, ...)
+void printLog( int priority, const char * restrict message, ...)
 {
     va_list ap;
     va_start( ap, message );
@@ -433,7 +433,7 @@ void log( int priority, const char * restrict message, ...)
     if( isatty( fileno( stderr ) ) )
         vfprintf( stderr, message, ap );
     else
-        vsyslog( priority, message, ap );
+        vsysprintLog( priority, message, ap );
 
     va_end( ap );
 }
