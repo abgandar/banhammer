@@ -387,73 +387,36 @@ void printTable( )
     struct bgroup *g;
     int now = time( NULL );
 
-    if( isatty( 1 ) )
+    STAILQ_FOREACH( g, &groups, next )
     {
-        STAILQ_FOREACH( g, &groups, next )
-        {
-            fprintf( stderr, "[table=%d, within=%ld, count=%d, reset=%ld, random=%d, continue=%s,\n"
-                            " warnfail=%s, onfail=%s, maxhosts=%d, warnmax=%s, onmax=%s, blocklocal=%s]\n",
-                            g->table,
-                            g->within_time,
-                            g->max_count,
-                            g->reset_time,
-                            g->random,
-                            g->flags & BIF_CONTINUE ? (g->flags & BIF_SKIP ? "next" : "yes") : "no",
-                            g->flags & BIF_WARNFAIL ? "yes" : "no",
-                            g->flags & BIF_BLOCKFAIL ? "block" : "ignore",
-                            g->max_hosts,
-                            g->flags & BIF_WARNMAX ? "yes" : "no",
-                            g->flags & BIF_BLOCKMAX ? "block" : "ignore",
-                            g->flags & BIF_BLOCKLOCAL ? "yes" : "no" );
-            fprintf( stderr, "Number of pattern: %d\t\tCurrently watched hosts: %d\n", g->reg_count, g->host_count );
+        log( LOG_NOTICE, "[table=%d, within=%ld, count=%d, reset=%ld, random=%d, continue=%s,\n"
+                        " warnfail=%s, onfail=%s, maxhosts=%d, warnmax=%s, onmax=%s, blocklocal=%s]\n",
+                        g->table,
+                        g->within_time,
+                        g->max_count,
+                        g->reset_time,
+                        g->random,
+                        g->flags & BIF_CONTINUE ? (g->flags & BIF_SKIP ? "next" : "yes") : "no",
+                        g->flags & BIF_WARNFAIL ? "yes" : "no",
+                        g->flags & BIF_BLOCKFAIL ? "block" : "ignore",
+                        g->max_hosts,
+                        g->flags & BIF_WARNMAX ? "yes" : "no",
+                        g->flags & BIF_BLOCKMAX ? "block" : "ignore",
+                        g->flags & BIF_BLOCKLOCAL ? "yes" : "no" );
+        log( LOG_NOTICE, "Number of pattern: %d\t\tCurrently watched hosts: %d\n", g->reg_count, g->host_count );
 
-            fprintf( stderr, "\nmatches\t\tpattern\n"
-                            "-----------------------------------------------------------\n" );
-            STAILQ_FOREACH( r, &g->regexps, next )
-                fprintf( stderr, "%d\t\t%s\n", r->matches, r->exp );
+        log( LOG_NOTICE, "\nmatches\t\tpattern\n"
+                        "-----------------------------------------------------------\n" );
+        STAILQ_FOREACH( r, &g->regexps, next )
+            log( LOG_NOTICE, "%d\t\t%s\n", r->matches, r->exp );
 
-            fprintf( stderr, "\nhost\t\t\tcount\texpires in\tstatus\n"
-                            "-----------------------------------------------------------\n" );
-            STAILQ_FOREACH( h, &g->hosts, next )
-                fprintf( stderr, "%s\t\t\t%d\t%ld sec\t\t%s\n", h->hostname, h->count, h->access_time + g->within_time - now,
-                                h->count > g->max_count ? "failed" : (h->count == g->max_count ? "blocked" : "watching") );
+        log( LOG_NOTICE, "\nhost\t\t\tcount\texpires in\tstatus\n"
+                        "-----------------------------------------------------------\n" );
+        STAILQ_FOREACH( h, &g->hosts, next )
+            log( LOG_NOTICE, "%s\t\t\t%d\t%ld sec\t\t%s\n", h->hostname, h->count, h->access_time + g->within_time - now,
+                            h->count > g->max_count ? "failed" : (h->count == g->max_count ? "blocked" : "watching") );
 
-            fprintf( stderr, "\n\n" );
-        }
-    }
-    else
-    {
-        STAILQ_FOREACH( g, &groups, next )
-        {
-            fprintf( stderr, "[table=%d, within=%ld, count=%d, reset=%ld, random=%d, continue=%s,\n"
-                            " warnfail=%s, onfail=%s, maxhosts=%d, warnmax=%s, onmax=%s, blocklocal=%s]\n",
-                            g->table,
-                            g->within_time,
-                            g->max_count,
-                            g->reset_time,
-                            g->random,
-                            g->flags & BIF_CONTINUE ? (g->flags & BIF_SKIP ? "next" : "yes") : "no",
-                            g->flags & BIF_WARNFAIL ? "yes" : "no",
-                            g->flags & BIF_BLOCKFAIL ? "block" : "ignore",
-                            g->max_hosts,
-                            g->flags & BIF_WARNMAX ? "yes" : "no",
-                            g->flags & BIF_BLOCKMAX ? "block" : "ignore",
-                            g->flags & BIF_BLOCKLOCAL ? "yes" : "no" );
-            fprintf( stderr, "Number of pattern: %d\t\tCurrently watched hosts: %d\n", g->reg_count, g->host_count );
-
-            fprintf( stderr, "\nmatches\t\tpattern\n"
-                            "-----------------------------------------------------------\n" );
-            STAILQ_FOREACH( r, &g->regexps, next )
-                fprintf( stderr, "%d\t\t%s\n", r->matches, r->exp );
-
-            fprintf( stderr, "\nhost\t\t\tcount\texpires in\tstatus\n"
-                            "-----------------------------------------------------------\n" );
-            STAILQ_FOREACH( h, &g->hosts, next )
-                fprintf( stderr, "%s\t\t\t%d\t%ld sec\t\t%s\n", h->hostname, h->count, h->access_time + g->within_time - now,
-                                h->count > g->max_count ? "failed" : (h->count == g->max_count ? "blocked" : "watching") );
-
-            fprintf( stderr, "\n\n" );
-        }
+        log( LOG_NOTICE, "\n\n" );
     }
 }
 
