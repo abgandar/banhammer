@@ -403,20 +403,18 @@ void printTable( )
                         g->flags & BIF_WARNMAX ? "yes" : "no",
                         g->flags & BIF_BLOCKMAX ? "block" : "ignore",
                         g->flags & BIF_BLOCKLOCAL ? "yes" : "no" );
-        log( LOG_NOTICE, "Number of pattern: %d\t\tCurrently watched hosts: %d\n", g->reg_count, g->host_count );
+        log( LOG_NOTICE, "Number of pattern: %d\tCurrently watched hosts: %d\n", g->reg_count, g->host_count );
 
-        log( LOG_NOTICE, "\nmatches\t\tpattern\n"
-                        "-----------------------------------------------------------\n" );
+        log( LOG_NOTICE, "\nmatches\tpattern\n" );
+        log( LOG_NOTICE, "-----------------------------------------------------------\n" );
         STAILQ_FOREACH( r, &g->regexps, next )
-            log( LOG_NOTICE, "%d\t\t%s\n", r->matches, r->exp );
+            log( LOG_NOTICE, "%d\t%s\n", r->matches, r->exp );
 
-        log( LOG_NOTICE, "\nhost\t\t\tcount\texpires in\tstatus\n"
-                        "-----------------------------------------------------------\n" );
+        log( LOG_NOTICE, "\nhost\tcount\texpires in\tstatus\n" );
+        log( LOG_NOTICE, "-----------------------------------------------------------\n" );
         STAILQ_FOREACH( h, &g->hosts, next )
-            log( LOG_NOTICE, "%s\t\t\t%d\t%ld sec\t\t%s\n", h->hostname, h->count, h->access_time + g->within_time - now,
+            log( LOG_NOTICE, "%s\t%d\t%ld sec\t%s\n", h->hostname, h->count, h->access_time + g->within_time - now,
                             h->count > g->max_count ? "failed" : (h->count == g->max_count ? "blocked" : "watching") );
-
-        log( LOG_NOTICE, "\n\n" );
     }
 }
 
