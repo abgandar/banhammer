@@ -89,6 +89,8 @@ static const struct option longopts[] = {
      { NULL, 0, NULL, 0 }
 };
 
+// global count of table entried
+static int count = 0;
 
 // show usage
 static void usage( )
@@ -118,6 +120,9 @@ static void print_stat( struct sockaddr *addr, socklen_t addrlen, u_int32_t valu
 {
     char hostname[NI_MAXHOST], ip[NI_MAXHOST];
     int days, hrs, min, sec;
+
+    // global counter
+    count++;
 
     // calculate expiration time
     sec = value - time( NULL );
@@ -156,8 +161,9 @@ static int show_stats( )
         printf( "ENTRIES IN IPFW TABLE %i\n"
                "=================================================\n"
                "IP address\texpires in\t\thost name\n", ptr->table );
+        count = 0;
         rc |= fw_list( print_stat, ptr->table );
-        printf( "\n" );
+        printf( "count: %u\n", count );
     }
 
     if( rc )

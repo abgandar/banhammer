@@ -774,7 +774,11 @@ int mainLoop( int argc, char *argv[] )
     STAILQ_INIT( &groups );
 
     // process command line
+#ifdef WITH_USERS
+    while( (ch = getopt_long( argc, argv, "d:f:u:g:chqvV", longopts, NULL )) != -1 )
+#else
     while( (ch = getopt_long( argc, argv, "d:f:chqvV", longopts, NULL )) != -1 )
+#endif
         switch( ch ) {
             case 'c':
                 // in check mode, we don't enter main loop by closing stdin

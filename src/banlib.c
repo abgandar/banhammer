@@ -310,7 +310,7 @@ int isLocal( struct sockaddr *sa )
     switch( sa->sa_family )
     {
         case AF_INET:
-            if( IN_LOOPBACK( ((struct sockaddr_in*)sa)->sin_addr.s_addr ) )
+            if( IN_LOOPBACK( ntohl( ((struct sockaddr_in*)sa)->sin_addr.s_addr ) ) )
                 return 1;
             break;
 
