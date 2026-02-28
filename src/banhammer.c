@@ -226,7 +226,7 @@ static void version( )
 #ifdef WITH_IPV6
     fprintf( stderr, "Built with IPv6 support via IPFW 3.\n" );
 #else
-    fprintf( stderr, "Built with IPv4 support only via IPFW 2.\n" );
+    fprintf( stderr, "Built with IPv4 support only via IPFW 3.\n" );
 #endif
 #ifdef WITH_USERS
     fprintf( stderr, "Built with support to drop priviliges.\n" );
