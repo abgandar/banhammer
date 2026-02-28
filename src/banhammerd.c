@@ -453,7 +453,7 @@ static int add_ip( )
     if( *ip == '\0' || (p && (*p != '\0')) )
     {
         if( loglevel >= 1 )
-            printLog( LOG_WARNING, "Invalid IP: %s", ip_arg );
+            printLog( LOG_WARNING, "Invalid IP: %s%s%s", ip_arg, p ? "," : "", p ? p : "" );
         return EXIT_FAILURE;
     }
 
