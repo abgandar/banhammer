@@ -417,38 +417,40 @@ static int add_ip( )
 
     if( !p ) return EXIT_FAILURE;
     ip = strsep( &p, "," );
-    value = strtol( p, &p, 10 );
-
-    switch( *p )
+    if( p )
     {
-        case 's':
-        case 'S':
-            p++;
-            break;
+        value = strtol( p, &p, 10 );
+        switch( *p )
+        {
+            case 's':
+            case 'S':
+                p++;
+                break;
 
-        case 'm':
-        case 'M':
-            value *= 60;
-            p++;
-            break;
+            case 'm':
+            case 'M':
+                value *= 60;
+                p++;
+                break;
 
-        case 'h':
-        case 'H':
-            value *= 60*60;
-            p++;
-            break;
+            case 'h':
+            case 'H':
+                value *= 60*60;
+                p++;
+                break;
 
-        case 'd':
-        case 'D':
-            value *= 60*60*24;
-            p++;
-            break;
+            case 'd':
+            case 'D':
+                value *= 60*60*24;
+                p++;
+                break;
 
-        default:
-            break;
+            default:
+                break;
+        }
     }
 
-    if( *ip == '\0' || *p != '\0' )
+    if( *ip == '\0' || (p && (*p != '\0')) )
     {
         if( loglevel >= 1 )
             printLog( LOG_WARNING, "Invalid IP: %s", ip_arg );
