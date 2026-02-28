@@ -61,5 +61,8 @@ int addHostLong( const char* host, uint32_t value, uint32_t table, time_t rt, in
 // Add the given host (DNS name or IP address) to firewall table
 int addHost( const char* host, uint32_t value, uint32_t table );
 
+// Remove the given host (DNS name or IP address) from firewall table
+int removeHost( const char* host, uint32_t table );
+
 // Log a message either to the console (if run interactively) or to syslog
 void printLog( int priority, const char * restrict message, ...);

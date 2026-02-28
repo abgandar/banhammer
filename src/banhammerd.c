@@ -64,6 +64,7 @@ static int sleep_time = 60;
 static char* state_file = NULL;
 static char* pid_file = NULL;
 static char* root_dir = NULL;
+static char* ip_arg = NULL;
 static int show_hostname = 1;
 
 // signal handler variable
@@ -82,6 +83,8 @@ static const struct option longopts[] = {
      { "foreground", no_argument, NULL, 'f' },
      { "cron", no_argument, NULL, 'C' },
      { "list", no_argument, NULL, 'L' },
+     { "add", required_argument, NULL, 'A' },
+     { "remove", required_argument, NULL, 'R' },
      { "help", no_argument, NULL, 'h' },
      { "noresolve", no_argument, NULL, 'n' },
      { "quiet", no_argument, NULL, 'q' },
@@ -98,12 +101,16 @@ static void usage( )
     errx( EX_USAGE,
           "\n"
           "Usage: banhammerd -h | -L [-n] -t tables | -C -t tables |\n"
+          "                  -A HOST[,TIME] -t tables | -R HOST -t tables\n"
           "                  -t tables [-s seconds] [-S statefile] [-p pidfile]\n"
           "                  [-d directory] [-f] [-n] [-v] [-q]\n"
           " --help, -h\tprint this message and exit\n"
           " --table, -t\tcomma separated list of IPFW table numbers to operate on\n"
           " --list, -L\tlist the currently blocked hosts and exit\n"
           " --cron, -C\tperform one cleaning cycle and exit (\"cron mode\")\n"
+          " --add, -A\tadd an IP entry to given table(s)\n"
+          "          \tTIME is duration (suffix s,m,h,d) or 0 for permanent\n"
+          " --remove, -R\tremove an entry from given table(s)\n"
           " --sleep, -s\ttime in seconds between purging expired hosts (default: %d)\n"
           " --statefile, -S\tsave and restore state of IPFW tables in file \"statefile\"\n"
           " --pidfile, -p\tPID filename\n"
@@ -401,6 +408,73 @@ static int clean_cycle( int daemonize )
     return EXIT_SUCCESS;
 }
 
+// add an entry to the IPFW table
+static void add_ip( )
+{
+    char *ip, *p = ip_arg;
+    uint32_t value = 0;
+    struct table *ptr;
+
+    if( !p ) return;
+    ip = strsep( &p, "," );
+    value = strtol( p, &p, 10 );
+
+    switch( *p )
+    {
+        case 's':
+        case 'S':
+            p++;
+            break;
+
+        case 'm':
+        case 'M':
+            value *= 60;
+            p++;
+            break;
+
+        case 'h':
+        case 'H':
+            value *= 60*60;
+            p++;
+            break;
+
+        case 'd':
+        case 'D':
+            value *= 60*60*24;
+            p++;
+            break;
+
+        default:
+            break;
+    }
+
+    if( *ip == '\0' || *p != '\0' )
+    {
+        if( loglevel >= 1 )
+            printLog( LOG_WARNING, "Invalid IP: %s", ip_arg );
+        return;
+    }
+
+    value += time( NULL );
+
+    STAILQ_FOREACH( ptr, &tables, next )
+        addHost( ip, value, ptr->table );
+}
+
+// remove an entry to the IPFW table
+static void remove_ip( )
+{
+    char *ip = ip_arg;
+    struct table *ptr;
+
+    if( !ip || !*ip ) return;
+
+    STAILQ_FOREACH( ptr, &tables, next )
+    {
+        if( removeHost( ip, ptr->table ) ) break;
+    }
+}
+
 // the main program with the main loop
 int main( int argc, char *argv[] )
 {
@@ -414,7 +488,7 @@ int main( int argc, char *argv[] )
     if( geteuid( ) != 0 )
         errx( EX_OSERR, "Must be run as root." );
 
-    while( (ch = getopt_long( argc, argv, "t:S:R:p:d:s:hfnvqLC", longopts, NULL )) != -1 )
+    while( (ch = getopt_long( argc, argv, "t:S:p:d:s:hfnvqLCA:R:", longopts, NULL )) != -1 )
     {
         switch( ch )
         {
@@ -444,20 +518,34 @@ int main( int argc, char *argv[] )
 
             case 'f':
                 if( mode != 1 )
-                    errx( EX_USAGE, "Options -C, -f and -L are mutually exclusive. Please only specify one of them." );
+                    errx( EX_USAGE, "Options -A, -R, -C, -f and -L are mutually exclusive. Please only specify one of them." );
                 mode = 0;
                 break;
 
             case 'C':
                 if( mode != 1 )
-                    errx( EX_USAGE, "Options -C, -f and -L are mutually exclusive. Please only specify one of them." );
+                    errx( EX_USAGE, "Options -A, -R, -C, -f and -L are mutually exclusive. Please only specify one of them." );
                 mode = 2;
                 break;
 
             case 'L':
                 if( mode != 1 )
-                    errx( EX_USAGE, "Options -C, -f and -L are mutually exclusive. Please only specify one of them." );
+                    errx( EX_USAGE, "Options -A, -R, -C, -f and -L are mutually exclusive. Please only specify one of them." );
                 mode = 3;
+                break;
+
+            case 'A':
+                if( mode != 1 )
+                    errx( EX_USAGE, "Options -A, -R, -C, -f and -L are mutually exclusive. Please only specify one of them." );
+                ip_arg = optarg;
+                mode = 4;
+                break;
+
+            case 'R':
+                if( mode != 1 )
+                    errx( EX_USAGE, "Options -A, -R, -C, -f and -L are mutually exclusive. Please only specify one of them." );
+                ip_arg = optarg;
+                mode = 5;
                 break;
 
             case 'S':
@@ -515,6 +603,12 @@ int main( int argc, char *argv[] )
             break;
         case 3:
             rc = show_stats( );
+            break;
+        case 4:
+            rc = add_ip( );
+            break;
+        case 5:
+            rc = remove_ip( );
             break;
     }
 

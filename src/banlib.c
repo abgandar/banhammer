@@ -435,6 +435,52 @@ int addHost( const char* host, uint32_t value, uint32_t table )
     return addHostLong( host, value, table, 0, 0 );
 }
 
+// Remove the given host (DNS name or IP address) from firewall table
+int removeHost( const char* host, uint32_t table )
+{
+    struct addrinfo *res = NULL, *ai;
+    struct addrinfo hints = { 0 };
+    char ip[NI_MAXHOST] = { 0 };
+    int rc;
+
+    hints.ai_flags = AI_ADDRCONFIG;
+    // prevent getaddrinfo from returning various socktype/protocol combinations for the same address
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_protocol = IPPROTO_UDP;
+#ifndef WITH_IPV6
+    // only ask for IPv4 addresses
+    hints.ai_family = AF_INET;
+#else
+    hints.ai_family = PF_UNSPEC;
+#endif
+    rc = getaddrinfo( host, NULL, &hints, &res );
+    if( rc )
+    {
+        if( loglevel >= 1 )
+            syslog( LOG_NOTICE, "Failed to resolve '%s' for removing: %s (rc=%d)", host, gai_strerror( rc ), rc );
+        return -1;
+    }
+
+    ai = res;
+    while( ai != NULL )
+    {
+        rc = fw_del( ai->ai_addr, ai->ai_addrlen, table );
+
+        if( loglevel >=2 )
+        {
+            if( getnameinfo( ai->ai_addr, ai->ai_addrlen, ip, sizeof(ip), NULL, 0, NI_NUMERICHOST ) )
+                strncpy( ip, "???", sizeof(ip) );
+            syslog( LOG_INFO, "Removed %s from IPFW table %d.", ip, table );
+        }
+
+        ai = ai->ai_next;
+    }
+
+    freeaddrinfo( res );
+
+    return 0;
+}
+
 // Log a message either to the console (if run interactively) or to syslog
 void printLog( int priority, const char * restrict message, ...)
 {
