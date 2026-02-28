@@ -411,12 +411,13 @@ static int clean_cycle( int daemonize )
 // add an entry to the IPFW table
 static int add_ip( )
 {
-    char *ip, *p = ip_arg;
+    char *ip, *p = ip_arg, *vp;
     uint32_t value = 0;
     struct table *ptr;
 
     if( !p ) return EXIT_FAILURE;
     ip = strsep( &p, "," );
+    vp = p;
     if( p )
     {
         value = strtol( p, &p, 10 );
@@ -453,11 +454,12 @@ static int add_ip( )
     if( *ip == '\0' || (p && (*p != '\0')) )
     {
         if( loglevel >= 1 )
-            printLog( LOG_WARNING, "Invalid IP: %s%s%s", ip_arg, p ? "," : "", p ? p : "" );
+            printLog( LOG_WARNING, "Invalid IP: %s%s%s", ip_arg, vp ? "," : "", vp ? vp : "" );
         return EXIT_FAILURE;
     }
 
-    value += time( NULL );
+    if( value != 0 )
+        value += time( NULL );
 
     STAILQ_FOREACH( ptr, &tables, next )
         addHost( ip, value, ptr->table );
