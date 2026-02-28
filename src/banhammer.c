@@ -64,7 +64,7 @@ const unsigned char BIF_WARNFAIL   = 0x04;    // warn on hits after blocking
 const unsigned char BIF_BLOCKFAIL  = 0x08;    // keep blocking on hits after blocking
 const unsigned char BIF_WARNMAX    = 0x10;    // warn if maxblock is exceeded
 const unsigned char BIF_BLOCKMAX   = 0x20;    // block hosts if maxblock is reached
-const unsigned char BIF_BLOCKLOCAL = 0x40;    // block hosts if maxblock is reached
+const unsigned char BIF_BLOCKLOCAL = 0x40;    // also block local interfaces
 
 // error numbers
 const unsigned int ERR_NO_ERROR       = 0;
@@ -142,7 +142,7 @@ static uid_t uid = 0;
 static gid_t gid = 0;
 #endif
 static const char* default_config_file = SYSCONFDIR "/banhammer.conf";
-static const struct bgroup default_group = { 4, 60, 600, 1, 0, 30, 0x08|0x10|0x20, 0, 0, { 0 }, { 0 } };
+static const struct bgroup default_group = { 4, 60, 600, 1, 0, 30, 0x04|0x10|0x20, 0, 0, { 0 }, { 0 } };
 // 4 hits within 60 seconds, block for 10 min in table 1, no watchlist limit, randomize time +-30%, warn if blocking failed and warn and block if maxhost exceeded, 0 references, 0 hosts on watch, and two empty lists
 
 // command line options and their aliases
