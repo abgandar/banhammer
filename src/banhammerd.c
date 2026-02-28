@@ -409,13 +409,13 @@ static int clean_cycle( int daemonize )
 }
 
 // add an entry to the IPFW table
-static void add_ip( )
+static int add_ip( )
 {
     char *ip, *p = ip_arg;
     uint32_t value = 0;
     struct table *ptr;
 
-    if( !p ) return;
+    if( !p ) return EXIT_FAILURE;
     ip = strsep( &p, "," );
     value = strtol( p, &p, 10 );
 
@@ -452,27 +452,29 @@ static void add_ip( )
     {
         if( loglevel >= 1 )
             printLog( LOG_WARNING, "Invalid IP: %s", ip_arg );
-        return;
+        return EXIT_FAILURE;
     }
 
     value += time( NULL );
 
     STAILQ_FOREACH( ptr, &tables, next )
         addHost( ip, value, ptr->table );
+
+    return EXIT_SUCCESS;
 }
 
 // remove an entry to the IPFW table
-static void remove_ip( )
+static int remove_ip( )
 {
     char *ip = ip_arg;
     struct table *ptr;
 
-    if( !ip || !*ip ) return;
+    if( !ip || !*ip ) return EXIT_FAILURE;
 
     STAILQ_FOREACH( ptr, &tables, next )
-    {
-        if( removeHost( ip, ptr->table ) ) break;
-    }
+        if( removeHost( ip, ptr->table ) ) return EXIT_FAILURE;
+
+    return EXIT_SUCCESS;
 }
 
 // the main program with the main loop

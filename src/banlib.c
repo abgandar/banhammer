@@ -435,7 +435,8 @@ int addHost( const char* host, uint32_t value, uint32_t table )
     return addHostLong( host, value, table, 0, 0 );
 }
 
-// Remove the given host (DNS name or IP address) from firewall table
+// Remove the given host (DNS name or IP address) from firewall table.
+// Removing non-existing entries is not considered an error.
 int removeHost( const char* host, uint32_t table )
 {
     struct addrinfo *res = NULL, *ai;
