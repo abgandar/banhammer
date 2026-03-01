@@ -161,6 +161,9 @@ static const struct option longopts[] = {
      { "group", required_argument, NULL, 'g' },
      { "user", required_argument, NULL, 'u' },
 #endif
+#ifdef HAVE_LIBMD
+     { "statefile", required_argument, NULL, 'S' },
+#endif
      { "check", no_argument, NULL, 'c' },
      { "help", no_argument, NULL, 'h' },
      { "quiet", no_argument, NULL, 'q' },
@@ -192,21 +195,26 @@ static int regex_get_substring( const char* line, regmatch_t* pmatch, char** hos
 static void usage( )
 {
     fprintf( stderr,
+          "Usage: banhammer -h | -v | [-c] [-V] [-q] [-d dir] "
 #ifdef WITH_USERS
-          "Usage: banhammer -h | -v | [-c] [-V] [-q] [-d dir] [-u user] [-g group] -f config_file [-f ...]\n"
-#else
-          "Usage: banhammer -h | -v | [-c] [-V] [-q] [-d dir] -f config_file [-f ...]\n"
+          "[-u user] [-g group] "
 #endif
+#ifdef HAVE_LIBMD
+          "[-S statefile] "
+#endif
+          "-f config_file [-f ...]\n"
           " --help, -h\n\t\tprint this message and exit\n"
           " --version, -v\n\t\tprint version and build information\n"
           " --check, -c\n\t\tcheck configuration for errors and exit\n"
           " --verbose, -V\n\t\tincrease logging level (repeat for more)\n"
           " --quiet, -q\n\t\tdecrease logging level (repeat for less)\n"
-          " --directory, -d\n"
-          "\t\tchroot to this directory (default: none)\n"
+          " --directory, -d\n\t\tchroot to this directory (default: none)\n"
 #ifdef WITH_USERS
           " --user, -u\n\t\tdrop priviliges to run as this user\n"
           " --group, -g\n\t\tdrop priviliges to run as this group\n"
+#endif
+#ifdef HAVE_LIBMD
+          " --statefile, -S\n\t\tsave and restore banned host state in file\n"
 #endif
           " --file, -f\n\t\tconfiguration file with pattern to match against\n"
           "\t\t(default if none specified: %s)\n"
@@ -238,6 +246,9 @@ static void version( )
 #endif
 #ifdef WITH_USERS
     fprintf( stderr, "Built with support to drop priviliges.\n" );
+#endif
+#ifdef HAVE_LIBMD
+    fprintf( stderr, "Built with support to save and restore state.\n" );
 #endif
     fprintf( stderr,
         "\n"
@@ -698,16 +709,16 @@ int parseGroupData( char* line, struct bgroup** pg )
 #ifdef HAVE_LIBMD
 void loadState( const char* state_file, const char config_hash[65] )
 {
+    struct stat sb;
+    FILE* sf;
     char *line = NULL, *ip, *p;
     size_t len = 0;
     ssize_t sl;
     int i = 1;
     time_t atime;
     uint32_t count;
-    struct stat sb;
-    FILE* sf;
-    struct host *hptr;
     struct bgroup *gptr;
+    struct host *hptr;
 
     if( !state_file ) return;
 
@@ -746,7 +757,7 @@ void loadState( const char* state_file, const char config_hash[65] )
     {
         i++;
         if( *line == '#' ) continue;
-        if( sl == 0)
+        if( sl == 0 )
         {
             gptr = STAILQ_NEXT( gptr, next );
             continue;
@@ -806,7 +817,7 @@ void loadState( const char* state_file, const char config_hash[65] )
         gptr->host_count++;
     }
 
-    if( sl != -1 && loglevel >= 1 )
+    if( (sl != -1 || gptr) && loglevel >= 1 )
         printLog( LOG_WARNING, "Mismatch in number of groups in state file %s", state_file );
 
     free( line );
@@ -827,6 +838,7 @@ void saveState( const char* state_file, const char config_hash[65] )
         return;
     }
     fprintf( sf, "%.64s\n", config_hash );
+    fprintf( sf, "# Time\t\tCount\tHost\n" );
 
     STAILQ_FOREACH( gptr, &groups, next )
     {
@@ -1266,7 +1278,6 @@ int main( int argc, char *argv[] )
     srandomdev( );
 
     // setup signal handlers
-    signal( SIGPIPE, SIG_IGN );
     signal( SIGINT, signalHandler );
     signal( SIGINFO, signalHandler );
     signal( SIGHUP, signalHandler );
