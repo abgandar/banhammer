@@ -14,14 +14,17 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
 
-/* Define to 1 if you have IPFW2 */
-#define HAVE_IPFW2 /**/
-
 /* Define to 1 if you have IPFW3 */
-#define HAVE_IPFW3 /**/
+#define HAVE_IPFW3 1
 
-/* Define to 1 if you have PCRE installed */
-/* #undef HAVE_LIBPCRE */
+/* Define to 1 if you have IPFW_VTYPE_MARK */
+#define HAVE_IPFW_VTYPE_MARK 1
+
+/* Define to 1 if you have the 'md' library (-lmd). */
+#define HAVE_LIBMD 1
+
+/* Define to 1 if you have PCRE2 installed */
+/* #undef HAVE_LIBPCRE2 */
 
 /* Define to 1 if your system has a GNU libc compatible 'malloc' function, and
    to 0 otherwise. */
@@ -112,7 +115,7 @@
 #define PACKAGE_NAME "banhammer"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "banhammer 0.2"
+#define PACKAGE_STRING "banhammer 0.3"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "banhammer"
@@ -121,10 +124,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "0.2"
-
-/* Define as the return type of signal handlers (`int' or `void'). */
-#define RETSIGTYPE void
+#define PACKAGE_VERSION "0.3"
 
 /* Define to 1 if all of the C89 standard headers exist (not just the ones
    required in a freestanding environment). This macro is provided for
@@ -224,10 +224,13 @@
 
 
 /* Version number of package */
-#define VERSION "0.2"
+#define VERSION "0.3"
 
-/* "check if system supports IPV6" */
-#define WITH_IPV6 /**/
+/* "Define to 1 if system supports IPV6" */
+#define WITH_IPV6 1
+
+/* Define if you want user/group switching support */
+/* #undef WITH_USERS */
 
 /* Define for Solaris 2.5.1 so the uint32_t typedef from <sys/synch.h>,
    <pthread.h>, or <semaphore.h> is not used. If the typedef were allowed, the
