@@ -831,7 +831,7 @@ void saveState( const char* state_file, const char config_hash[65] )
     STAILQ_FOREACH( gptr, &groups, next )
     {
         STAILQ_FOREACH( hptr, &gptr->hosts, next )
-            fprintf( sf, "%lld\t%u\t%s\n", hptr->access_time, hptr->count, hptr->hostname );
+            fprintf( sf, "%ld\t%u\t%s\n", hptr->access_time, hptr->count, hptr->hostname );
         fprintf( sf, "\n" );
     }
 
