@@ -19,6 +19,9 @@
 /* Define to 1 if you have IPFW_VTYPE_MARK */
 #undef HAVE_IPFW_VTYPE_MARK
 
+/* Define to 1 if you have the 'md' library (-lmd). */
+#undef HAVE_LIBMD
+
 /* Define to 1 if you have PCRE2 installed */
 #undef HAVE_LIBPCRE2
 

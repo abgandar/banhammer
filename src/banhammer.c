@@ -41,11 +41,15 @@
 #include <syslog.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/queue.h>
 #include <getopt.h>
 #ifdef WITH_USERS
 #include <pwd.h>
 #include <grp.h>
+#endif
+#ifdef HAVE_LIBMD
+#include <sha256.h>
 #endif
 
 #ifdef HAVE_LIBPCRE2
@@ -126,7 +130,7 @@ struct bgroup {
     unsigned int host_count;        // Number of hosts in watch list
     struct _hosts hosts;            // Host watch list
     struct _regexps regexps;        // Regular expression list
-    STAILQ_ENTRY(bgroup) next;       // Singly linked list entry
+    STAILQ_ENTRY(bgroup) next;      // Singly linked list entry
 };
 
 // Single global head of the list of groups this program is operating on
@@ -140,6 +144,10 @@ static char* uid_name = NULL;
 static char* gid_name = NULL;
 static uid_t uid = 0;
 static gid_t gid = 0;
+#endif
+#ifdef HAVE_LIBMD
+static SHA256_CTX* sha256_ctx = NULL;
+static const char* state_file = NULL;
 #endif
 static const char* default_config_file = SYSCONFDIR "/banhammer.conf";
 static const struct bgroup default_group = { 4, 60, 600, 1, 0, 30, 0x04|0x10|0x20, 0, 0, { 0 }, { 0 } };
@@ -687,6 +695,150 @@ int parseGroupData( char* line, struct bgroup** pg )
     return 0;
 }
 
+#ifdef HAVE_LIBMD
+void loadState( const char* state_file, const char config_hash[65] )
+{
+    char *line = NULL, *ip, *p;
+    size_t len = 0;
+    ssize_t sl;
+    int i = 1;
+    time_t atime;
+    uint32_t count;
+    struct stat sb;
+    FILE* sf;
+    struct host *hptr;
+
+    if( !state_file ) return;
+
+    // for safety reasons we only allow files owned by root and only writeable by root
+    if( stat( state_file, &sb ) )
+    {
+        if( loglevel >= 2 )
+            printLog( LOG_WARNING, "Could not examine state file '%s'.", state_file );
+        return;
+    }
+    if( (sb.st_uid != 0) || (sb.st_mode&(S_IWGRP|S_IWOTH)) || !S_ISREG(sb.st_mode) )
+    {
+        if( loglevel >= 1 )
+            printLog( LOG_ERR, "State file '%s' must be owned by root and be writeable only by owner.", state_file );
+        return;
+    }
+
+    if( !(sf = fopen( state_file, "r" )) )
+    {
+        if( loglevel >= 2 )
+            printLog( LOG_WARNING, "Could not open state file '%s' for reading.", state_file );
+        return;
+    }
+
+    if( readline( &line, &len, sf ) != 64 || strcmp( line, config_hash ) != 0 )
+    {
+        if( loglevel >= 1 )
+            printLog( LOG_ERR, "State file '%s' hash mismatch (expected: %s, got: %s).", state_file, config_hash, line );
+        free( line );
+        fclose( sf );
+        return;
+    }
+
+    gptr = STAILQ_FIRST( &groups );
+    while( (sl = readline( &line, &len, sf )) != -1 && gptr )
+    {
+        i++;
+        if( *line == '#' ) continue;
+        if( sl == 0)
+        {
+            gptr = STAILQ_NEXT( gptr, next );
+            continue;
+        }
+
+        p = line;
+
+        ip = strsep( &p, " \t" );
+        if( !ip )
+        {
+            if( loglevel >= 2 )
+                printLog( LOG_INFO, "Skipping invalid state file entry (%s:%d)", state_file, i );
+            continue;
+        }
+        atime = strtol( ip, &ip, 10 );
+        if( *ip != '\0' )
+        {
+            if( loglevel >= 2 )
+                printLog( LOG_INFO, "Skipping invalid state file entry (%s:%d)", state_file, i );
+            continue;
+        }
+
+        ip = strsep( &p, " \t" );
+        if( !ip )
+        {
+            if( loglevel >= 2 )
+                printLog( LOG_INFO, "Skipping invalid state file entry (%s:%d)", state_file, i );
+            continue;
+        }
+        count = strtol( ip, &ip, 10 );
+        if( *ip != '\0' )
+        {
+            if( loglevel >= 1 )
+                printLog( LOG_INFO, "Skipping invalid state file entry (%s:%d)", state_file, i );
+            continue;
+        }
+
+        ip = strsep( &p, " \t" );
+        if( !ip )
+        {
+            if( loglevel >= 1 )
+                printLog( LOG_INFO, "Skipping invalid state file entry (%s:%d)", state_file, i );
+            continue;
+        }
+
+        hptr = malloc( sizeof(struct host) );
+        if( !hptr )
+        {
+            if( loglevel >= 1 )
+                printLog( LOG_ERR, "Out of memory" );
+            break;
+        }
+        hptr->access_time = atime;
+        hptr->count = count;
+        hptr->hostname = strdup( ip );
+        STAILQ_INSERT_TAIL( &gptr->hosts, hptr, next );
+        gptr->host_count++;
+    }
+
+    if( sl != -1 && loglevel >= 1 )
+        printLog( LOG_WARNING, "Mismatch in number of groups in state file %s", state_file );
+
+    free( line );
+    fclose( sf );
+}
+
+void saveState( const char* state_file, const char config_hash[65] )
+{
+    struct bgroup *gptr;
+    struct host *hptr;
+
+    if( !state_file ) return;
+    if( !(sf = fopen( state_file, "w" )) )
+    {
+        if( loglevel >= 1 )
+            printLog( LOG_WARNING, "Could not open state file '%s' for writing.", state_file );
+        return;
+    }
+    fprintf( sf, "%.64s\n", config_hash );
+
+    STAILQ_FOREACH( gptr, &groups, next )
+    {
+        STAILQ_FOREACH( hptr, &gptr->hosts, next )
+            fprintf( sf, "%lld\t%u\t%s\n", hptr->access_time, hptr->count, hptr->hostname );
+        fprintf( sf, "\n" );
+    }
+
+    fchmod( fileno( sf ), S_IWUSR|S_IRUSR|S_IRGRP|S_IROTH );
+    fchown( fileno( sf ), 0, -1 );
+    fclose( sf );
+}
+#endif
+
 // Add groups from a file to the global group table
 int readConfigFile( const char* file )
 {
@@ -704,6 +856,13 @@ int readConfigFile( const char* file )
         printLog( LOG_WARNING, "Cannot open configuration file '%s'", file );
         return -1;
     }
+
+#ifdef HAVE_LIBMD
+    char data[1024];
+    while( len = fread( data, sizeof(data), 1, f ) )
+        SHA256_Update( sha256_ctx, data, len );
+    rewind( f );
+#endif
 
     // read in all groups from the file
     while( readline( &line, &size, f ) != -1 )
@@ -730,7 +889,7 @@ int readConfigFile( const char* file )
                 ec++;
             }
         }
-        lc++;    // count the enpty line
+        lc++;    // count the empty line
 
         // if a block was read, add it block to the global groups table or free it
         if( g )
@@ -773,12 +932,14 @@ int mainLoop( int argc, char *argv[] )
 
     STAILQ_INIT( &groups );
 
-    // process command line
-#ifdef WITH_USERS
-    while( (ch = getopt_long( argc, argv, "d:f:u:g:chqvV", longopts, NULL )) != -1 )
-#else
-    while( (ch = getopt_long( argc, argv, "d:f:chqvV", longopts, NULL )) != -1 )
+#ifdef HAVE_LIBMD
+    char config_hash[65] = { 0 };
+    char* save_state = SYSCONFDIR "/";
+    SHA256_Init( sha256_ctx );
 #endif
+
+    // process command line
+    while( (ch = getopt_long( argc, argv, "d:f:u:g:S:chqvV", longopts, NULL )) != -1 )
         switch( ch ) {
             case 'c':
                 // in check mode, we don't enter main loop by closing stdin
@@ -822,6 +983,12 @@ int mainLoop( int argc, char *argv[] )
                 break;
  #endif
 
+ #ifdef HAVE_LIBMD
+            case 'S':
+                state_file = optarg;
+                break;
+#endif
+
             case 'v':
                 version( );
                 return( EX_USAGE );
@@ -864,6 +1031,13 @@ int mainLoop( int argc, char *argv[] )
         printLog( LOG_ALERT, "No regular expression pattern specified for matching!" );
         return( EX_CONFIG );
     }
+
+#ifdef HAVE_LIBMD
+    // Finish hash over all config files and try to load saved state
+    SHA256_End( sha256_ctx, config_hash );
+    if( state_file )
+        loadState( state_file, config_hash );
+#endif
 
     // chroot to safe directory
     // from now on we don't do file I/O any more (except if we receive a SIGHUP, which is not supported in chroot mode)
@@ -1018,6 +1192,13 @@ int mainLoop( int argc, char *argv[] )
     free( pmatch );
 #endif
 
+#ifdef HAVE_LIBMD
+    // Save state before freeing
+    if( state_file )
+        saveState( state_file, config_hash );
+#endif
+
+    // free groups
     while( !STAILQ_EMPTY( &groups ) )
     {
         gptr = STAILQ_FIRST( &groups );

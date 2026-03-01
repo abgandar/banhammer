@@ -30,6 +30,9 @@ AM_FUNC_GETLINE
 # Check for libutil
 AC_CHECK_LIB([util], [pidfile_open], [LIBS="$LIBS -lutil"], [AC_MSG_ERROR([Did not find FreeBSD libutil])] )
 
+# Check for libmd to enable saving state in banhammer
+AC_CHECK_LIB([md],[SHA256_Init])
+
 # Enable user and group switching
 AC_ARG_ENABLE([users],
   [AS_HELP_STRING([--enable-users],
