@@ -146,7 +146,7 @@ static uid_t uid = 0;
 static gid_t gid = 0;
 #endif
 #ifdef HAVE_LIBMD
-static SHA256_CTX* sha256_ctx = NULL;
+static SHA256_CTX sha256_ctx = { 0 };
 static const char* state_file = NULL;
 #endif
 static const char* default_config_file = SYSCONFDIR "/banhammer.conf";
@@ -862,7 +862,7 @@ int readConfigFile( const char* file )
 #ifdef HAVE_LIBMD
     char data[1024];
     while( (len = fread( data, sizeof(data), 1, f )) )
-        SHA256_Update( sha256_ctx, data, len );
+        SHA256_Update( &sha256_ctx, data, len );
     rewind( f );
 #endif
 
@@ -937,7 +937,7 @@ int mainLoop( int argc, char *argv[] )
 #ifdef HAVE_LIBMD
     char config_hash[65] = { 0 };
     char* save_state = SYSCONFDIR "/";
-    SHA256_Init( sha256_ctx );
+    SHA256_Init( &sha256_ctx );
 #endif
 
     // process command line
@@ -1036,7 +1036,7 @@ int mainLoop( int argc, char *argv[] )
 
 #ifdef HAVE_LIBMD
     // Finish hash over all config files and try to load saved state
-    SHA256_End( sha256_ctx, config_hash );
+    SHA256_End( &sha256_ctx, config_hash );
     if( state_file )
         loadState( state_file, config_hash );
 #endif
