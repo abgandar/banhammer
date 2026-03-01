@@ -1083,19 +1083,18 @@ int main( int argc, char *argv[] )
     srandomdev( );
 
     // setup signal handlers
+    signal( SIGPIPE, SIG_IGN );
     signal( SIGINT, signalHandler );
     signal( SIGINFO, signalHandler );
     signal( SIGHUP, signalHandler );
     siginterrupt( SIGHUP, 1 );
 
     // initialize and run while necessary (allows re-initializing via SIGHUP)
-    do
-    {
+    do {
         rc = mainLoop( argc, argv );
         // reset getopt framework in case we restart due to SIGHUP
         optreset = 1; opterr = 1; optind = 1;
-    }
-    while( errno == EINTR );
+    } while( errno == EINTR );
 
     // We are done here, clean up
     fw_close( );
@@ -1103,4 +1102,3 @@ int main( int argc, char *argv[] )
 
     return rc;
 }
-
