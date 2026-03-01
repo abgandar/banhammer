@@ -707,6 +707,7 @@ void loadState( const char* state_file, const char config_hash[65] )
     struct stat sb;
     FILE* sf;
     struct host *hptr;
+    struct bgroup *gptr;
 
     if( !state_file ) return;
 
@@ -816,6 +817,7 @@ void saveState( const char* state_file, const char config_hash[65] )
 {
     struct bgroup *gptr;
     struct host *hptr;
+    FILE* sf;
 
     if( !state_file ) return;
     if( !(sf = fopen( state_file, "w" )) )
@@ -859,7 +861,7 @@ int readConfigFile( const char* file )
 
 #ifdef HAVE_LIBMD
     char data[1024];
-    while( len = fread( data, sizeof(data), 1, f ) )
+    while( (len = fread( data, sizeof(data), 1, f )) )
         SHA256_Update( sha256_ctx, data, len );
     rewind( f );
 #endif
