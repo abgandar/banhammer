@@ -948,7 +948,7 @@ int mainLoop( int argc, char *argv[] )
 
 #ifdef HAVE_LIBMD
     char config_hash[65] = { 0 };
-    char* save_state = SYSCONFDIR "/";
+    char* save_state = NULL;
     SHA256_Init( &sha256_ctx );
 #endif
 
