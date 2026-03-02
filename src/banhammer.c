@@ -873,7 +873,7 @@ int readConfigFile( const char* file )
 
 #ifdef HAVE_LIBMD
     char data[1024];
-    while( (len = fread( data, sizeof(data), 1, f )) )
+    while( (len = fread( data, sizeof(data), 1, f )) > 0 )
         SHA256_Update( &sha256_ctx, data, len );
     rewind( f );
 #endif
