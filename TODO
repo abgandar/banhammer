@@ -8,6 +8,3 @@ Release Engineering:
 
 Long term stuff:
 - banhammer: separate different regex codes into banlib
-- banlib:
-  * ipfw_add should really merge existing entry's value and new value, and
-    update to the largest (or 0).

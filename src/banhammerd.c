@@ -123,7 +123,7 @@ static void usage( )
 }
 
 // show address and associated timeout value
-static void print_stat( struct sockaddr *addr, socklen_t addrlen, u_int32_t value, u_int16_t table )
+static void printStat( struct sockaddr *addr, socklen_t addrlen, u_int32_t value, u_int16_t table )
 {
     char hostname[NI_MAXHOST], ip[NI_MAXHOST];
     int days, hrs, min, sec;
@@ -158,7 +158,7 @@ static void print_stat( struct sockaddr *addr, socklen_t addrlen, u_int32_t valu
 }
 
 // show all addresses and associated timeout values
-static int show_stats( )
+static int showStats( )
 {
     int rc = 0;
     struct table *ptr;
@@ -169,7 +169,7 @@ static int show_stats( )
                "=================================================\n"
                "IP address\texpires in\t\thost name\n", ptr->table );
         count = 0;
-        rc |= fw_list( print_stat, ptr->table );
+        rc |= fw_list( printStat, ptr->table );
         printf( "count: %u\n", count );
     }
 
@@ -180,7 +180,7 @@ static int show_stats( )
 }
 
 // check if "addr" with its associated "value" has timed out and if so, remove it
-static void check_entry( struct sockaddr *addr, socklen_t addrlen, u_int32_t value, u_int16_t table )
+static void checkEntry( struct sockaddr *addr, socklen_t addrlen, u_int32_t value, u_int16_t table )
 {
     char ip[NI_MAXHOST];
 
@@ -203,12 +203,12 @@ static void check_entry( struct sockaddr *addr, socklen_t addrlen, u_int32_t val
 }
 
 // signal handler
-static void handle_sigs( int signal )
+static void signalHandler( int signal )
 {
     switch( signal )
     {
         case SIGINFO:
-            show_stats( );
+            showStats( );
             break;
 
         default:
@@ -220,19 +220,19 @@ static void handle_sigs( int signal )
 }
 
 // clean out IP table once
-static int clean_once( )
+static int cleanOnce( )
 {
     int rc = 0;
     struct table *ptr;
 
     STAILQ_FOREACH( ptr, &tables, next )
-        rc |= fw_list( check_entry, ptr->table );
+        rc |= fw_list( checkEntry, ptr->table );
 
     return rc ? EX_SOFTWARE : EXIT_SUCCESS;
 }
 
 // write a table entry to state_file
-static void save_entry( struct sockaddr *addr, socklen_t addrlen, u_int32_t value, u_int16_t table )
+static void saveEntry( struct sockaddr *addr, socklen_t addrlen, u_int32_t value, u_int16_t table )
 {
     char ip[NI_MAXHOST];
 
@@ -241,7 +241,7 @@ static void save_entry( struct sockaddr *addr, socklen_t addrlen, u_int32_t valu
 }
 
 // save the state of all watched tables in state_file
-static void save_state( )
+static void saveState( )
 {
     struct table *ptr;
     time_t ct = time( NULL );
@@ -256,7 +256,7 @@ static void save_state( )
     fprintf( sf, "# banhammerd IPFW table state %s# table\tvalue\tIP\n", ctime( &ct ) );
 
     STAILQ_FOREACH( ptr, &tables, next )
-        fw_list( save_entry, ptr->table );
+        fw_list( saveEntry, ptr->table );
 
     fchmod( fileno( sf ), S_IWUSR|S_IRUSR|S_IRGRP|S_IROTH );
     fchown( fileno( sf ), 0, -1 );
@@ -264,7 +264,7 @@ static void save_state( )
 }
 
 // restore the state of all tables from state_file
-static void load_state( )
+static void loadState( )
 {
     char *line = NULL, *ip, *p;
     size_t len = 0;
@@ -348,7 +348,7 @@ static void load_state( )
 }
 
 // enter the clean cycle and demonize depending on parameter
-static int clean_cycle( int daemonize )
+static int cleanCycle( int daemonize )
 {
     struct pidfh *pfh = NULL;
     pid_t otherpid;
@@ -386,30 +386,30 @@ static int clean_cycle( int daemonize )
     pidfile_write( pfh );
 
     // set up signal handlers
-    signal( SIGTERM, handle_sigs );
-    signal( SIGINT, handle_sigs );
-    signal( SIGINFO, handle_sigs );
+    signal( SIGTERM, signalHandler );
+    signal( SIGINT, signalHandler );
+    signal( SIGINFO, signalHandler );
     signal( SIGPIPE, SIG_IGN );
 
     // load state
-    load_state( );
+    loadState( );
 
     // the main loop
     while( !done )
     {
-        clean_once( );
+        cleanOnce( );
         sleep( sleep_time );
     }
 
     // clean up
-    save_state( );
+    saveState( );
     if( pfh ) pidfile_remove( pfh );
 
     return EXIT_SUCCESS;
 }
 
 // add an entry to the IPFW table
-static int add_ip( )
+static int addIP( )
 {
     char *ip, *p = ip_arg, *vp;
     uint32_t value = 0;
@@ -468,7 +468,7 @@ static int add_ip( )
 }
 
 // remove an entry to the IPFW table
-static int remove_ip( )
+static int removeIP( )
 {
     char *ip = ip_arg;
     struct table *ptr;
@@ -602,19 +602,19 @@ int main( int argc, char *argv[] )
     {
         case 0:
         case 1:
-            rc = clean_cycle( mode );
+            rc = cleanCycle( mode );
             break;
         case 2:
-            rc = clean_once( );
+            rc = cleanOnce( );
             break;
         case 3:
-            rc = show_stats( );
+            rc = showStats( );
             break;
         case 4:
-            rc = add_ip( );
+            rc = addIP( );
             break;
         case 5:
-            rc = remove_ip( );
+            rc = removeIP( );
             break;
     }
 

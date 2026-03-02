@@ -174,7 +174,7 @@ static const struct option longopts[] = {
 
 #ifndef HAVE_LIBPCRE2
 // Extract a match from regexp result
-static int regex_get_substring( const char* line, regmatch_t* pmatch, char** hostname )
+static int regexGetSubstring( const char* line, regmatch_t* pmatch, char** hostname )
 {
     // there is no match (both are -1) or it is empty (both equal)
     if( pmatch->rm_so >= pmatch->rm_eo )
@@ -829,6 +829,7 @@ void saveState( const char* state_file, const char config_hash[65] )
     struct bgroup *gptr;
     struct host *hptr;
     FILE* sf;
+    time_t ct = time( NULL );
 
     if( !state_file ) return;
     if( !(sf = fopen( state_file, "w" )) )
@@ -838,7 +839,7 @@ void saveState( const char* state_file, const char config_hash[65] )
         return;
     }
     fprintf( sf, "%.64s\n", config_hash );
-    fprintf( sf, "# Time\t\tCount\tHost\n" );
+    fprintf( sf, "# banhammer watch list state %s\n# Time\t\tCount\tHost\n", ctime( &ct ) );
 
     STAILQ_FOREACH( gptr, &groups, next )
     {
@@ -1171,7 +1172,7 @@ int mainLoop( int argc, char *argv[] )
                         printLog( LOG_ERR, "Error in regexec for regexp '%s' (rc=%d).", rptr->exp, rc );
                     }
                 }
-                else if( regex_get_substring( line, &pmatch[1], &hostname ) )
+                else if( regexGetSubstring( line, &pmatch[1], &hostname ) )
                 {
                     // we caught a bad guy!
                     if( loglevel >= 3 )
