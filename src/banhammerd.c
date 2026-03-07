@@ -73,25 +73,6 @@ static int done = 0;
 // state file handle
 static FILE *sf = NULL;
 
-// command line options and their aliases
-static const struct option longopts[] = {
-     { "table", required_argument, NULL, 't' },
-     { "sleep", required_argument, NULL, 's' },
-     { "pidfile", required_argument, NULL, 'p' },
-     { "directory", required_argument, NULL, 'd' },
-     { "statefile", required_argument, NULL, 'S' },
-     { "foreground", no_argument, NULL, 'f' },
-     { "cron", no_argument, NULL, 'C' },
-     { "list", no_argument, NULL, 'L' },
-     { "add", required_argument, NULL, 'A' },
-     { "remove", required_argument, NULL, 'R' },
-     { "help", no_argument, NULL, 'h' },
-     { "noresolve", no_argument, NULL, 'n' },
-     { "quiet", no_argument, NULL, 'q' },
-     { "verbose", no_argument, NULL, 'v' },
-     { NULL, 0, NULL, 0 }
-};
-
 // global count of table entried
 static int count = 0;
 
@@ -493,6 +474,25 @@ int main( int argc, char *argv[] )
     // see if we are root
     if( geteuid( ) != 0 )
         errx( EX_OSERR, "Must be run as root." );
+
+    // command line options and their aliases
+    const struct option longopts[] = {
+        { "table", required_argument, NULL, 't' },
+        { "sleep", required_argument, NULL, 's' },
+        { "pidfile", required_argument, NULL, 'p' },
+        { "directory", required_argument, NULL, 'd' },
+        { "statefile", required_argument, NULL, 'S' },
+        { "foreground", no_argument, NULL, 'f' },
+        { "cron", no_argument, NULL, 'C' },
+        { "list", no_argument, NULL, 'L' },
+        { "add", required_argument, NULL, 'A' },
+        { "remove", required_argument, NULL, 'R' },
+        { "help", no_argument, NULL, 'h' },
+        { "noresolve", no_argument, NULL, 'n' },
+        { "quiet", no_argument, NULL, 'q' },
+        { "verbose", no_argument, NULL, 'v' },
+        { NULL, 0, NULL, 0 }
+    };
 
     while( (ch = getopt_long( argc, argv, "t:S:p:d:s:hfnvqLCA:R:", longopts, NULL )) != -1 )
     {
