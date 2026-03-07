@@ -92,7 +92,6 @@ const char* error_messages[] = {
     "Memory allocation failed"
 };
 
-
 // linked list of hosts for watch list
 struct host {
     unsigned int count;         // Number of hits
@@ -152,25 +151,6 @@ static const char* state_file = NULL;
 static const char* default_config_file = SYSCONFDIR "/banhammer.conf";
 static const struct bgroup default_group = { 4, 60, 600, 1, 0, 30, 0x04|0x10|0x20, 0, 0, { 0 }, { 0 } };
 // 4 hits within 60 seconds, block for 10 min in table 1, no watchlist limit, randomize time +-30%, warn if blocking failed and warn and block if maxhost exceeded, 0 references, 0 hosts on watch, and two empty lists
-
-// command line options and their aliases
-static const struct option longopts[] = {
-     { "directory", required_argument, NULL, 'd' },
-     { "file", required_argument, NULL, 'f' },
-#ifdef WITH_USERS
-     { "group", required_argument, NULL, 'g' },
-     { "user", required_argument, NULL, 'u' },
-#endif
-#ifdef HAVE_LIBMD
-     { "statefile", required_argument, NULL, 'S' },
-#endif
-     { "check", no_argument, NULL, 'c' },
-     { "help", no_argument, NULL, 'h' },
-     { "quiet", no_argument, NULL, 'q' },
-     { "version", no_argument, NULL, 'v' },
-     { "verbose", no_argument, NULL, 'V' },
-     { NULL, 0, NULL, 0 }
-};
 
 #ifndef HAVE_LIBPCRE2
 // Extract a match from regexp result
@@ -952,6 +932,25 @@ int mainLoop( int argc, char *argv[] )
     char* save_state = NULL;
     SHA256_Init( &sha256_ctx );
 #endif
+
+    // command line options and their aliases
+    const struct option longopts[] = {
+        { "directory", required_argument, NULL, 'd' },
+        { "file", required_argument, NULL, 'f' },
+    #ifdef WITH_USERS
+        { "group", required_argument, NULL, 'g' },
+        { "user", required_argument, NULL, 'u' },
+    #endif
+    #ifdef HAVE_LIBMD
+        { "statefile", required_argument, NULL, 'S' },
+    #endif
+        { "check", no_argument, NULL, 'c' },
+        { "help", no_argument, NULL, 'h' },
+        { "quiet", no_argument, NULL, 'q' },
+        { "version", no_argument, NULL, 'v' },
+        { "verbose", no_argument, NULL, 'V' },
+        { NULL, 0, NULL, 0 }
+    };
 
     // process command line
     while( (ch = getopt_long( argc, argv, "d:f:u:g:S:chqvV", longopts, NULL )) != -1 )
