@@ -419,6 +419,8 @@ void signalHandler( int sig )
             // fgetln(...) in the main loop returns automatically because we set siginterrupt for SIGHUP
             break;
 
+        case SIGTERM:
+        case SIGINT:
         default:
             // close stdin so that fgetln(...) in the main loop returns and never succeeds again
             fclose( stdin );
@@ -1279,6 +1281,7 @@ int main( int argc, char *argv[] )
 
     // setup signal handlers
     signal( SIGINT, signalHandler );
+    signal( SIGTERM, signalHandler );
     signal( SIGINFO, signalHandler );
     signal( SIGHUP, signalHandler );
     siginterrupt( SIGHUP, 1 );
