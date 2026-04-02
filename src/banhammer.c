@@ -421,6 +421,7 @@ void signalHandler( int sig )
 
         case SIGTERM:
         case SIGINT:
+        case SIGPIPE:
         default:
             // close stdin so that fgetln(...) in the main loop returns and never succeeds again
             fclose( stdin );
@@ -1283,6 +1284,7 @@ int main( int argc, char *argv[] )
     signal( SIGINT, signalHandler );
     signal( SIGTERM, signalHandler );
     signal( SIGINFO, signalHandler );
+    signal( SIGPIPE, signalHandler );
     signal( SIGHUP, signalHandler );
     siginterrupt( SIGHUP, 1 );
 
