@@ -420,6 +420,7 @@ void signalHandler( int sig )
             break;
 
         case SIGTERM:
+        case SIGQUIT:
         case SIGINT:
         case SIGPIPE:
         default:
@@ -1283,8 +1284,9 @@ int main( int argc, char *argv[] )
     // setup signal handlers
     signal( SIGINT, signalHandler );
     signal( SIGTERM, signalHandler );
-    signal( SIGINFO, signalHandler );
+    signal( SIGQUIT, signalHandler );
     signal( SIGPIPE, signalHandler );
+    signal( SIGINFO, signalHandler );
     signal( SIGHUP, signalHandler );
     siginterrupt( SIGHUP, 1 );
 
