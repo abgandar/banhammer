@@ -823,7 +823,7 @@ void saveState( const char* state_file, const char config_hash[65] )
         return;
     }
     fprintf( sf, "%.64s\n", config_hash );
-    fprintf( sf, "# banhammer watch list state %s# Time\t\tCount\tHost\n", ctime( &ct ) );      // ctime includes \n
+    fprintf( sf, "# banhammer watch list %s# Time\t\tCount\tHost\n", ctime( &ct ) );      // ctime includes \n
 
     STAILQ_FOREACH( gptr, &groups, next )
     {
